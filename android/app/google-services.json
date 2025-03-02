@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687454452213",
+    "project_id": "sakebrewingapp",
+    "storage_bucket": "sakebrewingapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687454452213:android:2c3b9a87aa747f312908bc",
+        "android_client_info": {
+          "package_name": "com.example.sake_brewing_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAFBFJCnO5w4Xs1YKJCE04pvHMeQYn1dE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,37 @@
+name: sake_brewing_app
+description: A Japanese sake brewing management app
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  provider: ^6.0.5        # 状態管理用
+  intl: ^0.19.0           # 日付処理用
+  fl_chart: ^0.63.0       # グラフ表示用
+  csv: ^5.0.2             # CSVファイル処理用
+  file_picker: ^5.5.0     # ファイル選択用
+  google_fonts: ^5.1.0    # フォント管理用
+  firebase_core: ^2.32.0  # 最新
+  firebase_auth: ^4.19.6  # 最新
+  cloud_firestore: ^4.17.5  # 最新
+  js: ^0.6.7  # PromiseJsImplのために追加
+  shared_preferences: ^2.5.2
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/data/

@@ -1,0 +1,15 @@
+{
+  "" : {
+    "const-values" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master.swiftconstvalues",
+    "dependencies" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master.d",
+    "diagnostics" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master.dia",
+    "emit-module-dependencies" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master-emit-module.dia",
+    "swift-dependencies" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/flutter_local_notifications-master.swiftdeps"
+  },
+  "/Users/dbssvvv/.pub-cache/hosted/pub.dev/flutter_local_notifications-14.1.5/macos/Classes/FlutterLocalNotificationsPlugin.swift" : {
+    "index-unit-output-path" : "/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/FlutterLocalNotificationsPlugin.o",
+    "llvm-bc" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/FlutterLocalNotificationsPlugin.bc",
+    "object" : "/Users/dbssvvv/sake_brewing_app/macos/build/Pods.build/Release/flutter_local_notifications.build/Objects-normal/arm64/FlutterLocalNotificationsPlugin.o"
+  }
+}
