@@ -43,13 +43,15 @@ class CsvService {
         
         try {
           // 基本情報の取得
-          final jungoId = row[0] as int;
-          final size = row[1] as int;
-          final startDateStr = row[2] as String;
-          final category = row[3] as String;
-          final type = row[4] as String;
-          final tankNo = row[5] as int;
-          final endDateStr = row[6] as String;
+          // 基本情報の取得部分を修正
+final jungoId = int.tryParse(row[0].toString()) ?? 0;  // 数値でない場合は0を使用
+final size = int.tryParse(row[1].toString()) ?? 0;
+final startDateStr = row[2].toString();
+final category = row[3].toString();
+final type = row[4].toString();
+final endDateStr = row[5].toString();
+// タンク番号を文字列として処理（これが重要）
+final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対応
           
           // 日付の解析（デバッグ出力付き）
           print('日付文字列: 留日=$startDateStr, 上槽予定=$endDateStr');

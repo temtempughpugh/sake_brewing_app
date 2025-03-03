@@ -93,7 +93,7 @@ class JungoData {
   final String name;                   // 製品名
   final String category;               // 仕込区分
   final String type;                   // 製法区分
-  final int tankNo;                    // タンク番号
+  final String tankNo;                  // タンク番号
   final DateTime startDate;            // 留日
   final DateTime endDate;              // 上槽予定日
   final int size;                      // 仕込規模
@@ -223,27 +223,17 @@ Future<void> loadFromCsv(String csvData) async {
   try {
     final jungoList = await CsvService.parseBrewingCsv(csvData);
     if (jungoList.isNotEmpty) {
+      // 既存のコード：
       _jungoList = jungoList;
       notifyListeners();
       
-      // データ保存を確実に行う
-      bool saved = false;
-      try {
-        await saveToLocalStorage();
-        saved = true;
-      } catch (saveError) {
-        print('データ保存エラー: $saveError');
-        // 1秒待ってリトライ
-        await Future.delayed(const Duration(seconds: 1));
-        try {
-          await saveToLocalStorage();
-          saved = true;
-        } catch (retryError) {
-          print('リトライ失敗: $retryError');
-        }
-      }
+      // 追加する行：UIをすぐに更新するための遅延処理
+      Future.delayed(Duration.zero, () {
+        notifyListeners();
+      });
       
-      print('データのインポート・保存結果: ${saved ? '成功' : '失敗'}');
+      // ローカルストレージに保存
+      await saveToLocalStorage();
     }
   } catch (e) {
     print('CSVデータ読み込みエラー: $e');
@@ -562,7 +552,7 @@ Future<void> loadFromCsv(String csvData) async {
       name: 'にごり酒70',
       category: '普通酒',
       type: 'にごり酒',
-      tankNo: 888,
+      tankNo: "888",
       startDate: now.subtract(const Duration(days: 1)), // 留日（昨日）
       endDate: now.add(const Duration(days: 17)),      // 上槽予定日
       size: 720,
@@ -603,7 +593,7 @@ Future<void> loadFromCsv(String csvData) async {
       name: 'にごり酒70',
       category: '普通酒',
       type: 'にごり酒',
-      tankNo: 288,
+      tankNo: "288",
       startDate: now.add(const Duration(days: 1)),
       endDate: now.add(const Duration(days: 18)),
       size: 720,
@@ -644,7 +634,7 @@ Future<void> loadFromCsv(String csvData) async {
       name: 'にごり酒70',
       category: '普通酒',
       type: 'にごり酒',
-      tankNo: 263,
+      tankNo: "263",
       startDate: now.add(const Duration(days: 2)),
       endDate: now.add(const Duration(days: 19)),
       size: 720,
@@ -673,7 +663,7 @@ Future<void> loadFromCsv(String csvData) async {
       name: '純米吟醸',
       category: '純米吟醸',
       type: '純米吟醸',
-      tankNo: 115,
+      tankNo: "115",
       startDate: now.subtract(const Duration(days: 24)),
       endDate: now,
       size: 720,

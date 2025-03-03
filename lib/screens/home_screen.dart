@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -7,10 +8,9 @@ import 'package:sake_brewing_app/screens/jungo_detail_screen.dart';
 import 'package:sake_brewing_app/screens/jungo_list_screen.dart';
 import 'package:sake_brewing_app/screens/koji_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sake_brewing_app/services/csv_service.dart';
 import 'package:sake_brewing_app/screens/csv_input_screen.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/services.dart';
+
 
 import 'dart:convert';
 
@@ -41,21 +41,30 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-  @override
+@override
 void initState() {
   super.initState();
-  // ローカルストレージからデータを読み込む
+  // ローカルストレージからデータを読み込んだ後、必要に応じてCSVを読み込む
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     final provider = Provider.of<BrewingDataProvider>(context, listen: false);
     
     // ローカルストレージからデータを読み込む
     await provider.loadFromLocalStorage();
     
-    // データがなければサンプルデータを生成
+    // ローカルストレージにデータがなければCSVファイルから読み込む
     if (provider.jungoList.isEmpty) {
-      provider.generateSampleData();
-      // サンプルデータを保存
-      await provider.saveToLocalStorage();
+      try {
+        print('サンプルCSVを自動読み込みします');
+        final String csvString = await rootBundle.loadString('assets/data/sample_brewing.csv');
+        await provider.loadFromCsv(csvString);
+        await provider.saveToLocalStorage();
+        print('サンプルCSVの自動読み込みが完了しました');
+      } catch (e) {
+        print('サンプルCSV自動読み込みエラー: $e');
+        // CSVが読み込めない場合はサンプルデータを生成
+        provider.generateSampleData();
+        await provider.saveToLocalStorage();
+      }
     }
   });
 }
@@ -422,8 +431,7 @@ void initState() {
     }
   }
   
-  // CSVファイルのインポート
-  // _importCsvFileメソッドを修正
+ // CSVファイルのインポート
 Future<void> _importCsvFile() async {
   try {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -447,7 +455,7 @@ Future<void> _importCsvFile() async {
       // CSVデータを解析
       await brewingDataProvider.loadFromCsv(csvString);
       
-      // 重要：明示的にデータを保存（この行を追加）
+      // 重要：明示的にデータを保存
       await brewingDataProvider.saveToLocalStorage();
       
       ScaffoldMessenger.of(context).showSnackBar(
