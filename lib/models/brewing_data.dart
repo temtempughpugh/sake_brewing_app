@@ -51,7 +51,9 @@ class BrewingProcess {
     this.waterAbsorption,
   });
   
-  // 引込み日を取得
+  // BrewingProcess クラスの日付メソッド部分を修正
+
+  // 引込み日を取得（洗米日の翌日）
   DateTime getHikomiDate() {
     if (type == ProcessType.koji) {
       return washingDate.add(const Duration(days: 1));
@@ -59,7 +61,7 @@ class BrewingProcess {
     return washingDate;
   }
   
-  // 盛り日を取得
+  // 盛り日を取得（洗米日の2日後）
   DateTime getMoriDate() {
     if (type == ProcessType.koji) {
       return washingDate.add(const Duration(days: 2));
@@ -67,7 +69,7 @@ class BrewingProcess {
     return washingDate;
   }
   
-  // 出麹日を取得
+  // 出麹日を取得（洗米日の3日後）
   DateTime getDekojiDate() {
     if (type == ProcessType.koji) {
       return washingDate.add(const Duration(days: 3));

@@ -31,30 +31,41 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     
+    // ThemeDataの部分を修正
+
     return MaterialApp(
       title: '日本酒醸造管理',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1976D2),
-          primary: const Color(0xFF1976D2),
-          secondary: const Color(0xFF2ECC71),
-          tertiary: const Color(0xFFE74C3C),
-          surfaceVariant: const Color(0xFFF5F5F5),
-          background: const Color(0xFFF8F8F8),
+          seedColor: const Color(0xFF8E7E6D), // 上品な茶色
+          primary: const Color(0xFF8E7E6D),
+          secondary: const Color(0xFF6B8E94), // 落ち着いた青緑
+          tertiary: const Color(0xFFAA6A6A), // 上品な赤茶
+          surface: const Color(0xFFF5F2EE), // 淡いベージュ
+          background: const Color(0xFFF8F6F2), // 淡いクリーム色
+          onBackground: const Color(0xFF4A4237), // 濃いベージュ（文字色）
         ),
         textTheme: GoogleFonts.notoSansTextTheme(textTheme).copyWith(
-          // 必要に応じてテキストスタイルをカスタマイズ
           titleLarge: GoogleFonts.notoSans(
             textStyle: textTheme.titleLarge,
             fontWeight: FontWeight.bold,
+            color: const Color(0xFF4A4237),
+          ),
+          bodyLarge: GoogleFonts.notoSans(
+            textStyle: textTheme.bodyLarge,
+            color: const Color(0xFF4A4237),
+          ),
+          bodyMedium: GoogleFonts.notoSans(
+            textStyle: textTheme.bodyMedium,
+            color: const Color(0xFF4A4237),
           ),
         ),
         useMaterial3: true,
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
-          backgroundColor: Color(0xFF1976D2),
+          backgroundColor: Color(0xFF8E7E6D),
           foregroundColor: Colors.white,
         ),
         cardTheme: CardTheme(
@@ -62,7 +73,9 @@ class MyApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
+          color: Colors.white,
         ),
+        scaffoldBackgroundColor: const Color(0xFFF8F6F2),
       ),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

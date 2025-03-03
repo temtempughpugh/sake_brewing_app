@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
+import 'package:sake_brewing_app/screens/jungo_detail_screen.dart';
 
 class KojiScreen extends StatefulWidget {
   const KojiScreen({super.key});
@@ -19,7 +20,17 @@ class _KojiScreenState extends State<KojiScreen> {
     final jungoList = provider.jungoList;
     
     // 選択された日付の麹工程を取得
-    final kojiProcesses = _getKojiProcessesForDate(jungoList, _selectedDate);
+    final moriProcesses = _getKojiProcessesForDate(jungoList, _selectedDate, 'mori');
+    final hikomiProcesses = _getKojiProcessesForDate(jungoList, _selectedDate, 'hikomi');
+    final dekojiProcesses = _getKojiProcessesForDate(jungoList, _selectedDate, 'dekoji');
+    
+    // 麹工程がない場合のフラグ
+    final hasNoKojiProcesses = moriProcesses.isEmpty && hikomiProcesses.isEmpty && dekojiProcesses.isEmpty;
+    
+    // 全体の重量
+    final moriTotalWeight = moriProcesses.fold<double>(0, (sum, p) => sum + p.amount);
+    final hikomiTotalWeight = hikomiProcesses.fold<double>(0, (sum, p) => sum + p.amount);
+    final dekojiTotalWeight = dekojiProcesses.fold<double>(0, (sum, p) => sum + p.amount);
     
     // 日付フォーマッター
     final dateFormat = DateFormat('yyyy年MM月dd日 (E)', 'ja');
@@ -27,184 +38,353 @@ class _KojiScreenState extends State<KojiScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('麹工程管理'),
+        backgroundColor: const Color(0xFF1A1A2E),
+        foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          // 日付選択部分
-          Card(
-            margin: const EdgeInsets.all(16.0),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                      });
-                    },
-                  ),
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: Text(
-                      dateFormat.format(_selectedDate),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color(0xFF1A1A2E),
+              const Color(0xFF16213E),
+              Colors.black.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // 日付選択部分
+            Card(
+              margin: const EdgeInsets.all(16.0),
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: const Color(0xFFF1C40F).withOpacity(0.5),
+                  width: 1,
+                ),
+              ),
+              color: const Color(0xFF0A2647),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                        });
+                      },
+                    ),
+                    GestureDetector(
+                      onTap: () => _selectDate(context),
+                      child: Text(
+                        dateFormat.format(_selectedDate),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDate = _selectedDate.add(const Duration(days: 1));
-                      });
-                    },
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = _selectedDate.add(const Duration(days: 1));
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
+            ),
+            
+            // 麹工程リスト
+            Expanded(
+              child: hasNoKojiProcesses
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.grain,
+                            size: 64,
+                            color: Colors.amber.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            '選択した日の麹作業はありません',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 盛り作業
+                            if (moriProcesses.isNotEmpty)
+                              _buildKojiProcessGroup('盛り作業', moriProcesses, moriTotalWeight, Colors.amber),
+                            
+                            // 引込み作業  
+                            if (hikomiProcesses.isNotEmpty)
+                              _buildKojiProcessGroup('引込み作業', hikomiProcesses, hikomiTotalWeight, Colors.orange),
+                              
+                            // 出麹作業
+                            if (dekojiProcesses.isNotEmpty)
+                              _buildKojiProcessGroup('出麹作業', dekojiProcesses, dekojiTotalWeight, Colors.deepOrange),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildKojiProcessGroup(String title, List<BrewingProcess> processes, double totalWeight, Color color) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 24.0),
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: color.withOpacity(0.5),
+          width: 1,
+        ),
+      ),
+      color: const Color(0xFF16213E),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ヘッダー部分
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withOpacity(0.8), color.withOpacity(0.4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16.0),
+                topRight: Radius.circular(16.0),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.grain,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 6.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '合計: ${totalWeight.toStringAsFixed(1)}kg',
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           
-          // 麹工程リスト
-          Expanded(
-            child: kojiProcesses.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+          // プロセスリスト
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: processes.length,
+            itemBuilder: (context, index) {
+              final process = processes[index];
+              return _buildKojiProcessItem(process, color);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildKojiProcessItem(BrewingProcess process, Color color) {
+    final provider = Provider.of<BrewingDataProvider>(context, listen: false);
+    final jungo = provider.getJungoById(process.jungoId);
+    
+    if (jungo == null) {
+      return const SizedBox.shrink();
+    }
+    
+    // 完了状態の判定
+    final bool isCompleted = process.status == ProcessStatus.completed;
+    
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              // 左側の情報
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          Icons.grain,
-                          size: 64,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '選択した日の麹作業はありません',
+                        Text(
+                          '順号${process.jungoId}',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          jungo.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.7),
                           ),
                         ),
                       ],
                     ),
-                  )
-                : _buildKojiProcessList(kojiProcesses),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildKojiProcessList(List<KojiProcessItem> kojiProcesses) {
-    return Container(
-      margin: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFDE7),
-        borderRadius: BorderRadius.circular(8.0),
-        border: Border.all(color: const Color(0xFFFFF9C4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              '本日の麹作業',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFFBC02D),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: ListView.builder(
-              itemCount: kojiProcesses.length,
-              itemBuilder: (context, index) {
-                return _buildKojiProcessItem(kojiProcesses[index]);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildKojiProcessItem(KojiProcessItem item) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-        vertical: 8.0,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(4.0),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            margin: const EdgeInsets.all(8.0),
-            width: 16,
-            height: 16,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF39C12),
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 12.0,
-              ),
-              child: Text(
-                '${item.processName}（順号${item.jungoId}）: ${item.riceType}',
-                style: const TextStyle(
-                  color: Color(0xFFE65100),
-                  fontWeight: FontWeight.bold,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '${process.riceType} (${process.ricePct}%)',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Text(
+                          '${process.amount}kg',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: color.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (process.memo != null && process.memo!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'メモ: ${process.memo}',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              '${item.amount}kg',
-              style: const TextStyle(
-                color: Color(0xFFE65100),
-                fontWeight: FontWeight.bold,
+              
+              // 完了/未完了トグルスイッチ
+              Column(
+                children: [
+                  Text(
+                    isCompleted ? '完了' : '未完了',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isCompleted ? Colors.green : Colors.grey.shade400,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Switch(
+                    value: isCompleted,
+                    onChanged: (value) {
+                      final newStatus = value ? ProcessStatus.completed : ProcessStatus.pending;
+                      provider.updateProcessStatus(process.jungoId, process.name, newStatus);
+                    },
+                    activeColor: Colors.green,
+                    activeTrackColor: Colors.green.withOpacity(0.3),
+                    inactiveThumbColor: Colors.grey.shade400,
+                    inactiveTrackColor: Colors.grey.shade700,
+                  ),
+                ],
               ),
-            ),
-          ),
-          if (item.status != ProcessStatus.completed)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ElevatedButton(
-                onPressed: () => _markAsCompleted(item),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              
+              // 詳細アイコン
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.white70,
                 ),
-                child: const Text('完了'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+                    ),
+                  );
+                },
               ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -217,6 +397,20 @@ class _KojiScreenState extends State<KojiScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       locale: const Locale('ja'),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFF1C40F),
+              onPrimary: Colors.black,
+              surface: Color(0xFF0A2647),
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: const Color(0xFF1A1A2E),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -225,56 +419,25 @@ class _KojiScreenState extends State<KojiScreen> {
     }
   }
   
-  // 指定された日付の麹工程を取得
-  List<KojiProcessItem> _getKojiProcessesForDate(List<JungoData> jungoList, DateTime date) {
+  // 麹工程を取得するヘルパーメソッド
+  List<BrewingProcess> _getKojiProcessesForDate(List<JungoData> jungoList, DateTime date, String stage) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    List<KojiProcessItem> result = [];
     
-    for (var jungo in jungoList) {
-      for (var process in jungo.processes) {
-        if (process.type == ProcessType.koji && 
-            DateFormat('yyyy-MM-dd').format(process.date) == dateStr) {
-          result.add(KojiProcessItem(
-            jungoId: jungo.jungoId,
-            processName: process.name,
-            riceType: process.riceType,
-            amount: process.amount,
-            status: process.status,
-            process: process,
-          ));
-        }
+    return jungoList.expand((jungo) => jungo.processes).where((process) {
+      if (process.type != ProcessType.koji) return false;
+      
+      if (stage == 'hikomi') {
+        final hikomiDate = process.getHikomiDate();
+        return DateFormat('yyyy-MM-dd').format(hikomiDate) == dateStr;
+      } else if (stage == 'mori') {
+        final moriDate = process.getMoriDate();
+        return DateFormat('yyyy-MM-dd').format(moriDate) == dateStr;
+      } else if (stage == 'dekoji') {
+        final dekojiDate = process.getDekojiDate();
+        return DateFormat('yyyy-MM-dd').format(dekojiDate) == dateStr;
       }
-    }
-    
-    return result;
+      
+      return false;
+    }).toList();
   }
-  
-  // 工程を完了としてマーク
-  void _markAsCompleted(KojiProcessItem item) {
-    final provider = Provider.of<BrewingDataProvider>(context, listen: false);
-    provider.updateProcessStatus(item.jungoId, item.processName, ProcessStatus.completed);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('「${item.processName}」を完了しました')),
-    );
-  }
-}
-
-// 麹工程表示用のデータクラス
-class KojiProcessItem {
-  final int jungoId;
-  final String processName;
-  final String riceType;
-  final double amount;
-  final ProcessStatus status;
-  final BrewingProcess process;
-  
-  KojiProcessItem({
-    required this.jungoId,
-    required this.processName,
-    required this.riceType,
-    required this.amount,
-    required this.status,
-    required this.process,
-  });
 }
