@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:sake_brewing_app/services/csv_service.dart';
-import 'package:sake_brewing_app/models/firestore_service.dart';
+import 'package:sake_brewing_app/models/local_storage_service.dart';
 
 // 工程の種類
 enum ProcessType {
@@ -175,7 +175,7 @@ class TankRecord {
 class BrewingDataProvider with ChangeNotifier {
   List<JungoData> _jungoList = [];
   DateTime _selectedDate = DateTime.now();
-  final FirestoreService _firestoreService = FirestoreService();
+  final LocalStorageService _storageService = LocalStorageService();
   bool _isLoading = false;
 
   // 新しいゲッター
@@ -183,57 +183,72 @@ class BrewingDataProvider with ChangeNotifier {
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
   
-  // Firestoreからデータをロード
-  Future<void> loadFromFirestore() async {
-    _isLoading = true;
-    notifyListeners();
-    
-    try {
-      final jungoList = await _firestoreService.loadJungoData();
-      if (jungoList.isNotEmpty) {
-        _jungoList = jungoList;
-        notifyListeners();
-      }
-    } catch (e) {
-      print('Firestoreからのデータロードエラー: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  // loadFromFirestore メソッドを次のように変更
+Future<void> loadFromLocalStorage() async {
+  _isLoading = true;
+  notifyListeners();
   
-  // Firestoreにデータを保存
-  Future<void> saveToFirestore() async {
-    _isLoading = true;
-    notifyListeners();
-    
-    try {
-      for (var jungo in _jungoList) {
-        await _firestoreService.saveJungoData(jungo);
-      }
-    } catch (e) {
-      print('Firestoreへのデータ保存エラー: $e');
-    } finally {
-      _isLoading = false;
+  try {
+    final jungoList = await _storageService.loadJungoData();
+    if (jungoList.isNotEmpty) {
+      _jungoList = jungoList;
       notifyListeners();
     }
+  } catch (e) {
+    print('ローカルストレージからのデータロードエラー: $e');
+  } finally {
+    _isLoading = false;
+    notifyListeners();
   }
+}
 
-  // CSVからロードした後にFirestoreに保存
-  Future<void> loadFromCsv(String csvData) async {
-    try {
-      final jungoList = await CsvService.parseBrewingCsv(csvData);
-      if (jungoList.isNotEmpty) {
-        _jungoList = jungoList;
-        notifyListeners();
-        
-        // Firestoreに保存
-        await saveToFirestore();
-      }
-    } catch (e) {
-      print('CSVデータ読み込みエラー: $e');
+// saveToFirestore メソッドを次のように変更
+Future<void> saveToLocalStorage() async {
+  _isLoading = true;
+  notifyListeners();
+  
+  try {
+    for (var jungo in _jungoList) {
+      await _storageService.saveJungoData(jungo);
     }
+  } catch (e) {
+    print('ローカルストレージへのデータ保存エラー: $e');
+  } finally {
+    _isLoading = false;
+    notifyListeners();
   }
+}
+
+Future<void> loadFromCsv(String csvData) async {
+  try {
+    final jungoList = await CsvService.parseBrewingCsv(csvData);
+    if (jungoList.isNotEmpty) {
+      _jungoList = jungoList;
+      notifyListeners();
+      
+      // データ保存を確実に行う
+      bool saved = false;
+      try {
+        await saveToLocalStorage();
+        saved = true;
+      } catch (saveError) {
+        print('データ保存エラー: $saveError');
+        // 1秒待ってリトライ
+        await Future.delayed(const Duration(seconds: 1));
+        try {
+          await saveToLocalStorage();
+          saved = true;
+        } catch (retryError) {
+          print('リトライ失敗: $retryError');
+        }
+      }
+      
+      print('データのインポート・保存結果: ${saved ? '成功' : '失敗'}');
+    }
+  } catch (e) {
+    print('CSVデータ読み込みエラー: $e');
+  }
+}
   
   // 日付を変更
   void changeDate(DateTime date) {

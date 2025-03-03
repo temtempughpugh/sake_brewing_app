@@ -5,21 +5,19 @@ import 'package:sake_brewing_app/models/brewing_data.dart';
 import 'package:sake_brewing_app/screens/home_screen.dart';
 import 'package:sake_brewing_app/services/notification_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';  // 自動生成されたファイル
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 保存データの読み込みを試みる
+  final provider = BrewingDataProvider();
+  await provider.loadFromLocalStorage();
   
-  // Firebase初期化
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
   await NotificationService().init();
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => BrewingDataProvider()),
+        ChangeNotifierProvider(create: (_) => provider),
       ],
       child: const MyApp(),
     ),

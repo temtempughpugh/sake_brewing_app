@@ -6,9 +6,14 @@ import 'package:sake_brewing_app/screens/daily_schedule_screen.dart';
 import 'package:sake_brewing_app/screens/jungo_detail_screen.dart';
 import 'package:sake_brewing_app/screens/jungo_list_screen.dart';
 import 'package:sake_brewing_app/screens/koji_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sake_brewing_app/services/csv_service.dart';
+import 'package:sake_brewing_app/screens/csv_input_screen.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
+
 import 'dart:convert';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,14 +26,39 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   ProcessType? _selectedFilter;
   
-  @override
-  void initState() {
-    super.initState();
-    // サンプルデータを生成
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<BrewingDataProvider>(context, listen: false).generateSampleData();
-    });
+  Future<void> _loadSampleCsv() async {
+  try {
+    final String csvString = await rootBundle.loadString('assets/data/sample_brewing.csv');
+    final brewingDataProvider = Provider.of<BrewingDataProvider>(context, listen: false);
+    await brewingDataProvider.loadFromCsv(csvString);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('サンプルCSVデータを読み込みました')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('エラーが発生しました: $e')),
+    );
   }
+}
+  @override
+void initState() {
+  super.initState();
+  // ローカルストレージからデータを読み込む
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final provider = Provider.of<BrewingDataProvider>(context, listen: false);
+    
+    // ローカルストレージからデータを読み込む
+    await provider.loadFromLocalStorage();
+    
+    // データがなければサンプルデータを生成
+    if (provider.jungoList.isEmpty) {
+      provider.generateSampleData();
+      // サンプルデータを保存
+      await provider.saveToLocalStorage();
+    }
+  });
+}
   
   @override
   Widget build(BuildContext context) {
@@ -45,16 +75,33 @@ class _HomeScreenState extends State<HomeScreen> {
     final today = DateTime.now();
     
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('日本酒醸造管理'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_upload),
-            onPressed: _importCsvFile,
-            tooltip: 'CSVをインポート',
-          ),
-        ],
-      ),
+    appBar: AppBar(
+  title: const Text('日本酒醸造管理'),
+  actions: [
+    // CSVテキスト入力画面へ遷移
+    IconButton(
+      icon: const Icon(Icons.text_fields),
+      onPressed: () {
+        Navigator.push(
+          context, 
+          MaterialPageRoute(builder: (context) => const CsvInputScreen()),
+        );
+      },
+      tooltip: 'CSVテキスト入力',
+    ),
+    // 既存のボタン群
+    IconButton(
+      icon: const Icon(Icons.storage),
+      onPressed: _checkStoredData,
+      tooltip: '保存データを確認',
+    ),
+    IconButton(
+      icon: const Icon(Icons.file_upload),
+      onPressed: _importCsvFile,
+      tooltip: 'CSVをインポート',
+    ),
+  ],
+),
       body: Column(
         children: [
           // 上部フィルター
@@ -376,47 +423,78 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   
   // CSVファイルのインポート
-  Future<void> _importCsvFile() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-      );
+  // _importCsvFileメソッドを修正
+Future<void> _importCsvFile() async {
+  try {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['csv'],
+    );
 
-      if (result != null) {
-        // ファイルの内容を読み込む
-        final fileBytes = result.files.first.bytes;
-        if (fileBytes == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ファイルの読み込みに失敗しました')),
-          );
-          return;
-        }
-        
-        final csvString = utf8.decode(fileBytes);
-        final brewingDataProvider = Provider.of<BrewingDataProvider>(context, listen: false);
-        
-        // CSVデータを解析
-        final jungoList = await CsvService.parseBrewingCsv(csvString);
-        
-        if (jungoList.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('有効なデータが見つかりませんでした')),
-          );
-          return;
-        }
-        
-        // データをプロバイダーにセット
-        await brewingDataProvider.loadFromCsv(csvString);
-        
+    if (result != null) {
+      // ファイルの内容を読み込む
+      final fileBytes = result.files.first.bytes;
+      if (fileBytes == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${jungoList.length}件のデータをインポートしました')),
+          const SnackBar(content: Text('ファイルの読み込みに失敗しました')),
         );
+        return;
       }
-    } catch (e) {
+      
+      final csvString = utf8.decode(fileBytes);
+      final brewingDataProvider = Provider.of<BrewingDataProvider>(context, listen: false);
+      
+      // CSVデータを解析
+      await brewingDataProvider.loadFromCsv(csvString);
+      
+      // 重要：明示的にデータを保存（この行を追加）
+      await brewingDataProvider.saveToLocalStorage();
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('エラーが発生しました: $e')),
+        const SnackBar(content: Text('データをインポートしました。データは保存されました。')),
       );
     }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('エラーが発生しました: $e')),
+    );
   }
+}
+
+
+// メソッドを追加
+void _checkStoredData() async {
+  final prefs = await SharedPreferences.getInstance();
+  final keys = prefs.getKeys();
+  
+  String allData = '';
+  for (String key in keys) {
+    final value = prefs.get(key);
+    String valueStr = value.toString();
+    if (valueStr.length > 100) {
+      valueStr = valueStr.substring(0, 100) + '...';
+    }
+    allData += '$key: $valueStr\n\n';
+  }
+  
+  if (allData.isEmpty) {
+    allData = 'データがありません';
+  }
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('保存データ確認'),
+      content: SingleChildScrollView(
+        child: Text(allData),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('閉じる'),
+        ),
+      ],
+    ),
+  );
+}
 }
