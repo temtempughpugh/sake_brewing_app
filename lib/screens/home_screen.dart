@@ -535,21 +535,35 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
   
-  // 醪工程を取得するヘルパーメソッド
-  List<BrewingProcess> _getMoromiProcessesForDate(List<JungoData> jungoList, DateTime date, String namePattern) {
-    final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    
-    return jungoList.expand((jungo) => jungo.processes).where((process) {
-      // 醪工程または四段工程で名前がパターンを含み、作業日が選択日と一致
-      if ((process.type == ProcessType.moromi || process.type == ProcessType.other) &&
-          process.name.contains(namePattern)) {
-        final workDate = process.getWorkDate();
-        return DateFormat('yyyy-MM-dd').format(workDate) == dateStr;
-      }
-      return false;
-    }).toList();
-  }
+List<BrewingProcess> _getMoromiProcessesForDate(List<JungoData> jungoList, DateTime date, String namePattern) {
+  final dateStr = DateFormat('yyyy-MM-dd').format(date);
   
+  return jungoList.expand((jungo) => jungo.processes).where((process) {
+    // 醪工程または四段工程で、指定された工程と一致し、作業日が選択日と一致
+    bool matchesPattern = false;
+    
+    if (namePattern == '添') {
+      // 添仕込みの場合は「添」または「初」を含む工程を検索
+      matchesPattern = process.name.contains('添') || process.name.contains('初');
+    } else if (namePattern == '仲') {
+      matchesPattern = process.name.contains('仲');
+    } else if (namePattern == '留') {
+      matchesPattern = process.name.contains('留');
+    } else if (namePattern == '四段') {
+      matchesPattern = process.name.contains('四段');
+    } else if (namePattern == 'モト') {
+      matchesPattern = process.name.contains('モト');
+    } else {
+      matchesPattern = process.name.contains(namePattern);
+    }
+    
+    if ((process.type == ProcessType.moromi || process.type == ProcessType.other) && matchesPattern) {
+      final workDate = process.getWorkDate();
+      return DateFormat('yyyy-MM-dd').format(workDate) == dateStr;
+    }
+    return false;
+  }).toList();
+}
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
     

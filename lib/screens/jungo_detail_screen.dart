@@ -263,26 +263,29 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
   
   // 仕込み配合表の作成
   Widget _buildBrewingCompositionTable(JungoData jungo) {
-    // プロセスから配合情報を集計
-    Map<String, double> kojiAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
-    Map<String, double> kakeAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
+  // プロセスから配合情報を集計
+  Map<String, double> kojiAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
+  Map<String, double> kakeAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
+  
+  for (var process in jungo.processes) {
+    String stage = '';
     
-    for (var process in jungo.processes) {
-      String stage = '';
-      
-      if (process.name.contains('モト')) {
-        stage = 'モト';
-      } else if (process.name.contains('添')) {
-        stage = '添';
-      } else if (process.name.contains('仲')) {
-        stage = '仲';
-      } else if (process.name.contains('留')) {
-        stage = '留';
-      } else if (process.name.contains('四段')) {
-        stage = '四段';
-      } else {
-        continue; // 該当しない工程はスキップ
-      }
+    if (process.name.contains('モト')) {
+      stage = 'モト';
+    } else if (process.name.contains('添') || process.name.contains('初掛') || process.name.contains('初麹')) {
+      // 「添」または「初掛」または「初麹」を含む工程は全て「添」に分類
+      stage = '添';
+    } else if (process.name.contains('仲')) {
+      stage = '仲';
+    } else if (process.name.contains('留')) {
+      stage = '留';
+    } else if (process.name.contains('四段')) {
+      stage = '四段';
+    } else {
+      // デバッグ出力を追加して、どの工程がスキップされているかを確認
+      print('スキップされた工程: ${process.name} (タイプ: ${process.type})');
+      continue; // 該当しない工程はスキップ
+    }
       
       if (process.type == ProcessType.koji) {
         kojiAmounts[stage] = (kojiAmounts[stage] ?? 0) + process.amount;

@@ -34,54 +34,76 @@ class _JungoListScreenState extends State<JungoListScreen> {
       
       final now = DateTime.now();
       
-     // ステータスフィルター（正確なルールに基づく）
+      // 修正後のコード
 if (_filterStatus == 'moromi') {
-  // 留日の翌日から上槽日までは醪状態
+  // 留日の翌日から上槽日までは醪状態 - 変更なし
   return now.isAfter(jungo.startDate.add(const Duration(days: 1))) && 
          now.isBefore(jungo.endDate);
 } else if (_filterStatus == 'shubo') {
-  // 酒母状態の判定（モト掛の仕込み日から添掛の洗米日まで）
+  // 酒母状態の判定 - CSVの形式に合わせて修正
   bool hasMoto = false;
   DateTime? motoWorkDate;
-  bool hasSoe = false;
-  DateTime? soeWashingDate;
-  
- for (var process in jungo.processes) {
-  if (process.name.contains('モト') && process.type == ProcessType.moromi) {
-    motoWorkDate = process.getWorkDate();
-  }
-  if (process.name.contains('添') && 
-     (process.type == ProcessType.washing || process.type == ProcessType.moromi)) {
-    soeWashingDate = process.washingDate;
-  }
-}
-  
-  if (hasMoto && hasSoe && motoWorkDate != null && soeWashingDate != null) {
-    return now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
-  }
-  return false;
-} else if (_filterStatus == 'brewing') {
-  // 仕込み状態の判定（添掛の仕込み日から留日まで）
-  bool hasSoe = false;
-  DateTime? soeWorkDate;
+  bool hasFirstProcess = false; // 初掛/添掛プロセスの存在
+  DateTime? firstProcessDate;
   
   for (var process in jungo.processes) {
-    if (process.name.contains('添') && process.type == ProcessType.moromi) {
-      hasSoe = true;
-      soeWorkDate = process.getWorkDate();
+    // モト掛/モト麹の検出 (モト系工程)
+    if (process.name.toLowerCase().contains('モト')) {
+      hasMoto = true;
+      if (process.type == ProcessType.moromi) {
+        motoWorkDate = process.getWorkDate();
+      }
+    }
+    
+    // 初掛/添掛の検出 (二番目の工程)
+    if ((process.name.toLowerCase().contains('初') || 
+         process.name.toLowerCase().contains('添')) && 
+        process.type == ProcessType.moromi) {
+      hasFirstProcess = true;
+      firstProcessDate = process.washingDate;
     }
   }
   
-  if (hasSoe && soeWorkDate != null) {
-    return now.isAfter(soeWorkDate) && now.isBefore(jungo.startDate);
+  // デバッグ出力を追加
+  print('順号${jungo.jungoId} 酒母判定: hasMoto=$hasMoto, hasFirstProcess=$hasFirstProcess');
+  
+  // 酒母状態の条件: モト工程が存在し、初/添工程も存在し、
+  // 現在日がモト作業日と初/添洗米日の間である
+  if (hasMoto && hasFirstProcess && motoWorkDate != null && firstProcessDate != null) {
+    return now.isAfter(motoWorkDate) && now.isBefore(firstProcessDate);
+  }
+  return false;
+} else if (_filterStatus == 'brewing') {
+  // 仕込み状態の判定 - CSVの形式に合わせて修正
+  bool hasFirstProcess = false; // 初掛/添掛プロセス
+  DateTime? firstProcessWorkDate;
+  
+  for (var process in jungo.processes) {
+    // 初掛/添掛の検出
+    if ((process.name.toLowerCase().contains('初') || 
+         process.name.toLowerCase().contains('添')) && 
+        process.type == ProcessType.moromi) {
+      hasFirstProcess = true;
+      firstProcessWorkDate = process.getWorkDate();
+      break;
+    }
+  }
+  
+  // デバッグ出力を追加
+  print('順号${jungo.jungoId} 仕込み判定: hasFirstProcess=$hasFirstProcess');
+  
+  // 仕込み状態の条件: 初/添工程が存在し、
+  // 現在日が初/添作業日と留日(jungo.startDate)の間である
+  if (hasFirstProcess && firstProcessWorkDate != null) {
+    return now.isAfter(firstProcessWorkDate) && now.isBefore(jungo.startDate);
   }
   return false;
 } else if (_filterStatus == 'completed') {
-  // 完了の判定
+  // 完了の判定 - 変更なし
   return now.isAfter(jungo.endDate);
 }
 
-return true; // 'all'の場合はすべて表示
+      return true; // 'all'の場合はすべて表示
     }).toList();
     
     // 順号でソート
@@ -225,43 +247,53 @@ return true; // 'all'の場合はすべて表示
     bool isCompleted = now.isAfter(jungo.endDate);
     bool isMoromi = now.isAfter(jungo.startDate.add(const Duration(days: 1))) && now.isBefore(jungo.endDate);
     
-    /// 酒母状態の判定
+    // 修正後のコード
+// 酒母状態の判定 - CSVの形式に合わせて修正
 bool isShubo = false;
 DateTime? motoWorkDate;
-DateTime? soeWashingDate;
+DateTime? firstProcessDate;
 bool hasMoto = false;
-bool hasSoe = false;
+bool hasFirstProcess = false;
 
 for (var process in jungo.processes) {
-  if (process.name.contains('モト') && process.type == ProcessType.moromi) {
+  // モト系工程の検出
+  if (process.name.toLowerCase().contains('モト')) {
     hasMoto = true;
-    motoWorkDate = process.getWorkDate();
+    if (process.type == ProcessType.moromi) {
+      motoWorkDate = process.getWorkDate();
+    }
   }
-  if (process.name.contains('添') && 
-     (process.type == ProcessType.washing || process.type == ProcessType.moromi)) {
-    hasSoe = true;
-    soeWashingDate = process.washingDate;
+  
+  // 初掛/添掛の検出
+  if ((process.name.toLowerCase().contains('初') || 
+       process.name.toLowerCase().contains('添')) && 
+      process.type == ProcessType.moromi) {
+    hasFirstProcess = true;
+    firstProcessDate = process.washingDate;
   }
 }
 
-if (hasMoto && hasSoe && motoWorkDate != null && soeWashingDate != null) {
-  isShubo = now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
+if (hasMoto && hasFirstProcess && motoWorkDate != null && firstProcessDate != null) {
+  isShubo = now.isAfter(motoWorkDate) && now.isBefore(firstProcessDate);
 }
-    
-    // 仕込み状態の判定
-    bool isBrewing = false;
-    DateTime? soeWorkDate;
-    
-    for (var process in jungo.processes) {
-      if (process.name.contains('添') && process.type == ProcessType.moromi) {
-        soeWorkDate = process.getWorkDate();
-        break;
-      }
-    }
-    
-    if (soeWorkDate != null) {
-      isBrewing = now.isAfter(soeWorkDate) && now.isBefore(jungo.startDate);
-    }
+
+// 仕込み状態の判定 - CSVの形式に合わせて修正
+bool isBrewing = false;
+DateTime? firstProcessWorkDate;
+
+for (var process in jungo.processes) {
+  // 初掛/添掛の検出
+  if ((process.name.toLowerCase().contains('初') || 
+       process.name.toLowerCase().contains('添')) && 
+      process.type == ProcessType.moromi) {
+    firstProcessWorkDate = process.getWorkDate();
+    break;
+  }
+}
+
+if (firstProcessWorkDate != null) {
+  isBrewing = now.isAfter(firstProcessWorkDate) && now.isBefore(jungo.startDate);
+}
     
     // カードの色設定
     Color cardColor = Colors.white;
