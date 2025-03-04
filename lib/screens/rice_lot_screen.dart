@@ -131,24 +131,36 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: lot.isNew 
-                          ? Colors.green.shade100 
-                          : Colors.amber.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      lot.isNew ? '新米' : '古米',
-                      style: TextStyle(
-                        color: lot.isNew 
-                            ? Colors.green.shade800 
-                            : Colors.amber.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: lot.isNew 
+                              ? Colors.green.shade100 
+                              : Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          lot.isNew ? '新米' : '古米',
+                          style: TextStyle(
+                            color: lot.isNew 
+                                ? Colors.green.shade800 
+                                : Colors.amber.shade800,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      // 編集ボタン追加
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 18),
+                        onPressed: () => _showEditLotDialog(context, lot),
+                        tooltip: 'ロット情報を編集',
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -204,6 +216,203 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ロット編集ダイアログ
+  Future<void> _showEditLotDialog(BuildContext context, RiceData lot) async {
+    final provider = Provider.of<RiceDataProvider>(context, listen: false);
+    
+    String riceType = lot.riceType;
+    String origin = lot.origin;
+    int polishingRatio = lot.polishingRatio;
+    DateTime? arrivalDate = lot.arrivalDate;
+    String? polishingNo = lot.polishingNo;
+    double moisture = lot.moisture;
+    bool isNew = lot.isNew;
+    
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('ロット ${lot.lotId} 編集'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 品種選択
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: '品種',
+                  border: OutlineInputBorder(),
+                ),
+                value: riceType,
+                items: RiceDataProvider.riceTypes
+                    .map((type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    riceType = value;
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 産地選択
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: '産地',
+                  border: OutlineInputBorder(),
+                ),
+                value: origin,
+                items: RiceDataProvider.origins
+                    .map((org) => DropdownMenuItem(
+                          value: org,
+                          child: Text(org),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    origin = value;
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 精米歩合
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: '精米歩合 (%)',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: polishingRatio.toString(),
+                keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  polishingRatio = int.tryParse(value) ?? 70;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 白米水分
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: '白米水分 (%)',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: moisture.toString(),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (value) {
+                  moisture = double.tryParse(value) ?? 14.5;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 入荷日
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: arrivalDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (date != null) {
+                    arrivalDate = date;
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: '入荷日（任意）',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Text(
+                    arrivalDate != null
+                        ? DateFormat('yyyy年MM月dd日').format(arrivalDate!)
+                        : '選択してください',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // 精米No
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: '精米No（任意）',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: polishingNo ?? '',
+                onChanged: (value) {
+                  polishingNo = value.isEmpty ? null : value;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 新米/古米選択
+              Row(
+                children: [
+                  const Text('米の種類:'),
+                  const SizedBox(width: 16),
+                  ChoiceChip(
+                    label: const Text('新米'),
+                    selected: isNew,
+                    onSelected: (selected) {
+                      if (selected) {
+                        isNew = true;
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('古米'),
+                    selected: !isNew,
+                    onSelected: (selected) {
+                      if (selected) {
+                        isNew = false;
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // 更新したロットを作成
+              final updatedLot = RiceData(
+                lotId: lot.lotId,
+                riceType: riceType,
+                origin: origin,
+                polishingRatio: polishingRatio,
+                arrivalDate: arrivalDate,
+                polishingNo: polishingNo,
+                moisture: moisture,
+                isNew: isNew,
+                washingRecords: lot.washingRecords,
+              );
+              
+              // プロバイダーで更新
+              provider.updateRiceLot(updatedLot);
+              
+              Navigator.pop(context);
+              
+              // 成功メッセージ表示
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ロット情報を更新しました')),
+              );
+            },
+            child: const Text('更新'),
+          ),
+        ],
       ),
     );
   }
@@ -314,7 +523,6 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
                   );
                   if (date != null) {
                     arrivalDate = date;
-                    // setState だとエラーになるので、ダイアログ内では直接の更新はしない
                   }
                 },
                 child: InputDecorator(
@@ -396,6 +604,11 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
               provider.addRiceLot(newLot);
               
               Navigator.pop(context);
+              
+              // 成功メッセージ表示
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('新規ロットを登録しました')),
+              );
             },
             child: const Text('登録'),
           ),
@@ -412,7 +625,21 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('ロット ${lot.lotId} 詳細'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('ロット ${lot.lotId} 詳細'),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () {
+                Navigator.pop(context); // 詳細ダイアログを閉じる
+                _showEditLotDialog(context, lot); // 編集ダイアログを開く
+              },
+              tooltip: '編集',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -427,15 +654,15 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
                     children: [
                       const Text('基本情報', style: TextStyle(fontWeight: FontWeight.bold)),
                       const Divider(),
-                      Text('品種: ${lot.riceType}'),
-                      Text('産地: ${lot.origin}'),
-                      Text('精米歩合: ${lot.polishingRatio}%'),
-                      Text('白米水分: ${lot.moisture.toStringAsFixed(1)}%'),
+                      _buildInfoItem('品種', lot.riceType),
+                      _buildInfoItem('産地', lot.origin),
+                      _buildInfoItem('精米歩合', '${lot.polishingRatio}%'),
+                      _buildInfoItem('白米水分', '${lot.moisture.toStringAsFixed(1)}%'),
                       if (lot.arrivalDate != null) 
-                        Text('入荷日: ${dateFormat.format(lot.arrivalDate!)}'),
+                        _buildInfoItem('入荷日', dateFormat.format(lot.arrivalDate!)),
                       if (lot.polishingNo != null) 
-                        Text('精米No: ${lot.polishingNo}'),
-                      Text('種類: ${lot.isNew ? "新米" : "古米"}'),
+                        _buildInfoItem('精米No', lot.polishingNo!),
+                      _buildInfoItem('種類', lot.isNew ? "新米" : "古米"),
                     ],
                   ),
                 ),
@@ -496,6 +723,11 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
               if (confirm == true) {
                 provider.deleteRiceLot(lot.lotId);
                 Navigator.pop(context);
+                
+                // 成功メッセージ表示
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('ロットを削除しました')),
+                );
               }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -507,6 +739,36 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
               _showAddWashingRecordDialog(context, lot);
             },
             child: const Text('洗米記録を追加'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 情報項目ウィジェット
+  Widget _buildInfoItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

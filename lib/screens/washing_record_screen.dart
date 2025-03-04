@@ -19,6 +19,7 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
   final _memoController = TextEditingController();
   RiceEvaluation _riceEvaluation = RiceEvaluation.unknown;
   RiceEvaluation _steamedEvaluation = RiceEvaluation.unknown;
+  double? _currentMoisture;
   
   // 選択された白米ロットID
   List<String> _selectedRiceLotIds = [];
@@ -38,24 +39,20 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
     // 選択された日付の洗米工程を取得
     final washingProcesses = _getWashingProcessesForDate(brewingProvider.jungoList, _selectedDate);
     
-    // 麹用と掛米用に分離
+    // 麹用と掛米用に分離 - 工程タイプと名前の両方を考慮
     final kojiProcesses = washingProcesses.where((p) => 
-      p.name.toLowerCase().contains('麹') || 
-      brewingProvider.getJungoById(p.jungoId)?.processes.any((proc) => 
-        proc.name.toLowerCase().contains('麹')
-      ) == true
+      p.type == ProcessType.koji || // 工程タイプが麹
+      p.name.toLowerCase().contains('麹') // または名前に「麹」が含まれる
     ).toList();
     
     final kakemaiProcesses = washingProcesses.where((p) => 
-      !p.name.toLowerCase().contains('麹') && 
-      brewingProvider.getJungoById(p.jungoId)?.processes.any((proc) => 
-        proc.name.toLowerCase().contains('麹')
-      ) != true
+      p.type != ProcessType.koji && // 工程タイプが麹ではない
+      !p.name.toLowerCase().contains('麹') // かつ名前に「麹」が含まれない
     ).toList();
     
-    // 品種ごとにグループ化
-    final kojiGroups = _groupProcessesByRiceType(kojiProcesses);
-    final kakemaiGroups = _groupProcessesByRiceType(kakemaiProcesses);
+    // 品種と用途でグループ化
+    final kojiGroups = _groupProcessesByRiceTypeAndUsage(kojiProcesses);
+    final kakemaiGroups = _groupProcessesByRiceTypeAndUsage(kakemaiProcesses);
     
     // 選択日の既存洗米記録を取得
     final existingRecords = riceProvider.getWashingRecordsByDate(_selectedDate);
@@ -87,34 +84,72 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
                       children: [
                         // 麹米グループ
                         if (kojiGroups.isNotEmpty) ...[
-                          Text(
-                            '麹米',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.grain, color: Colors.amber.shade800),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '麹米',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           ...kojiGroups.entries.map((entry) => 
-                            _buildRiceGroup(entry.key, entry.value, existingRecords)
+                            _buildRiceGroup(
+                              riceType: entry.key.split('|')[0],
+                              usage: entry.key.split('|')[1],
+                              processes: entry.value, 
+                              existingRecords: existingRecords,
+                              isKoji: true,
+                            )
                           ).toList(),
                           const SizedBox(height: 16),
                         ],
                         
                         // 掛米グループ
                         if (kakemaiGroups.isNotEmpty) ...[
-                          Text(
-                            '掛米',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.rice_bowl, color: Colors.blue.shade800),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '掛米',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           ...kakemaiGroups.entries.map((entry) => 
-                            _buildRiceGroup(entry.key, entry.value, existingRecords)
+                            _buildRiceGroup(
+                              riceType: entry.key.split('|')[0],
+                              usage: entry.key.split('|')[1],
+                              processes: entry.value, 
+                              existingRecords: existingRecords,
+                              isKoji: false,
+                            )
                           ).toList(),
                         ],
                       ],
@@ -126,36 +161,70 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
     );
   }
   
-  // 工程を品種でグループ化
-  Map<String, List<BrewingProcess>> _groupProcessesByRiceType(List<BrewingProcess> processes) {
+  // 工程を品種と用途でグループ化（キーは "品種|用途" 形式）
+  Map<String, List<BrewingProcess>> _groupProcessesByRiceTypeAndUsage(List<BrewingProcess> processes) {
     final Map<String, List<BrewingProcess>> groups = {};
     
     for (var process in processes) {
-      if (groups.containsKey(process.riceType)) {
-        groups[process.riceType]!.add(process);
+      // 用途を決定（プロセス名から）
+      String usage = _determineUsage(process.name);
+      
+      // キーを作成（品種と用途の組み合わせ）
+      String key = "${process.riceType}|$usage";
+      
+      if (groups.containsKey(key)) {
+        groups[key]!.add(process);
       } else {
-        groups[process.riceType] = [process];
+        groups[key] = [process];
       }
     }
     
     return groups;
   }
   
+  // プロセス名から用途を決定
+  String _determineUsage(String processName) {
+    final name = processName.toLowerCase();
+    
+    if (name.contains('モト')) {
+      return 'モト';
+    } else if (name.contains('添') || name.contains('初')) {
+      return '添/初';
+    } else if (name.contains('仲')) {
+      return '仲';
+    } else if (name.contains('留')) {
+      return '留';
+    } else if (name.contains('四段')) {
+      return '四段';
+    } else {
+      return 'その他';
+    }
+  }
+  
   // 白米グループウィジェットを構築
-  Widget _buildRiceGroup(String riceType, List<BrewingProcess> processes, List<WashingRecord> existingRecords) {
-    // 品種に対応する既存の洗米記録を検索
-    // 現状では簡易的なマッチングを行う
+  Widget _buildRiceGroup({
+    required String riceType,
+    required String usage,
+    required List<BrewingProcess> processes,
+    required List<WashingRecord> existingRecords,
+    required bool isKoji,
+  }) {
+    // 品種と用途に対応する既存の洗米記録を検索
     WashingRecord? existingRecord;
     for (var record in existingRecords) {
       // ロットIDと品種のマッチングはより複雑になる可能性がある
-      // 現段階では暫定的な実装
       if (record.riceLotIds.isNotEmpty) {
         final riceLot = Provider.of<RiceDataProvider>(context, listen: false)
             .getRiceLotById(record.riceLotIds.first);
         
         if (riceLot != null && riceLot.riceType == riceType) {
-          existingRecord = record;
-          break;
+          // 用途も確認（より詳細なマッチングのため）
+          bool matchesUsage = true; // 現時点では単純化
+          
+          if (matchesUsage) {
+            existingRecord = record;
+            break;
+          }
         }
       }
     }
@@ -169,8 +238,47 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
         .where((lot) => lot.riceType == riceType)
         .toList();
     
+    // 既存値があれば設定
+    if (existingRecord != null) {
+      if (existingRecord.riceLotIds.isNotEmpty) {
+        _selectedRiceLotIds = existingRecord.riceLotIds;
+        
+        // 選択されたロットの水分値を設定
+        final lot = Provider.of<RiceDataProvider>(context, listen: false)
+            .getRiceLotById(_selectedRiceLotIds.first);
+        if (lot != null) {
+          _currentMoisture = lot.moisture;
+        }
+      }
+      
+      _absorptionRateController.text = existingRecord.absorptionRate.toString();
+      if (existingRecord.memo != null) {
+        _memoController.text = existingRecord.memo!;
+      }
+      _riceEvaluation = existingRecord.riceEvaluation;
+      _steamedEvaluation = existingRecord.steamedEvaluation;
+    } else {
+      // 既存値がなければクリア
+      _absorptionRateController.clear();
+      _memoController.clear();
+      _riceEvaluation = RiceEvaluation.unknown;
+      _steamedEvaluation = RiceEvaluation.unknown;
+      _currentMoisture = null;
+    }
+    
+    // カードの色を設定
+    Color cardColor = isKoji 
+        ? Colors.amber.withOpacity(0.05) 
+        : Colors.blue.withOpacity(0.05);
+    Color accentColor = isKoji ? Colors.amber : Colors.blue;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 16.0),
+      color: cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: accentColor.withOpacity(0.3), width: 1),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -180,24 +288,44 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '$riceType (${processes.first.ricePct}%)',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$riceType (${processes.first.ricePct}%)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '用途: $usage',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '合計: ${totalWeight.toStringAsFixed(1)}kg',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: accentColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '合計: ${totalWeight.toStringAsFixed(1)}kg',
+                    style: TextStyle(
+                      color: accentColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
             
-            const Divider(),
+            const Divider(height: 24),
             
             // 工程リスト
             ListView.builder(
@@ -208,36 +336,55 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
                 final process = processes[index];
                 return ListTile(
                   dense: true,
+                  leading: Icon(
+                    isKoji ? Icons.grain : Icons.rice_bowl,
+                    color: accentColor,
+                    size: 18,
+                  ),
                   title: Text('${process.name} (順号${process.jungoId})'),
                   subtitle: Text('${process.amount}kg'),
                 );
               },
             ),
             
-            const Divider(),
+            const Divider(height: 24),
             
             // 洗米記録部分
-            const Text(
-              '洗米記録',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+            Row(
+              children: [
+                Icon(Icons.opacity, color: accentColor),
+                const SizedBox(width: 8),
+                Text(
+                  '洗米記録',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: accentColor,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             
             // 白米ロット選択（ドロップダウン）
             DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '白米ロット',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              value: existingRecord?.riceLotIds.isNotEmpty == true ? existingRecord!.riceLotIds.first : null,
+              value: _selectedRiceLotIds.isNotEmpty ? _selectedRiceLotIds.first : null,
               items: [
                 ...relatedLots.map((lot) => DropdownMenuItem(
                   value: lot.lotId,
-                  child: Text('${lot.lotId} - ${lot.riceType} (${lot.origin})'),
+                  child: Text(
+                    '${lot.lotId} - ${lot.riceType} (${lot.origin}, ${lot.polishingRatio}%, No.${lot.polishingNo ?? "なし"})',
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 )),
                 if (relatedLots.isEmpty)
                   const DropdownMenuItem(
@@ -249,22 +396,56 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
                 if (value != null) {
                   setState(() {
                     _selectedRiceLotIds = [value];
+                    
+                    // 選択されたロットの水分値を取得
+                    final lot = Provider.of<RiceDataProvider>(context, listen: false)
+                        .getRiceLotById(value);
+                    if (lot != null) {
+                      _currentMoisture = lot.moisture;
+                    }
                   });
                 }
               },
             ),
+            
+            // 白米水分表示（選択されたロットから）
+            if (_currentMoisture != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.water_drop, size: 16, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      '白米水分: ${_currentMoisture!.toStringAsFixed(1)}%',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             
             const SizedBox(height: 12),
             
             // 吸水率入力
             TextField(
               controller: _absorptionRateController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: '吸水率 (%)',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: Colors.white,
               ),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
             ),
             
             const SizedBox(height: 12),
@@ -274,12 +455,16 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<RiceEvaluation>(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '白米評価',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    value: existingRecord?.riceEvaluation ?? RiceEvaluation.unknown,
+                    value: existingRecord?.riceEvaluation ?? _riceEvaluation,
                     items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
                       value: eval,
                       child: Text(eval.toDisplayString()),
@@ -296,12 +481,16 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<RiceEvaluation>(
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: '蒸米評価',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    value: existingRecord?.steamedEvaluation ?? RiceEvaluation.unknown,
+                    value: existingRecord?.steamedEvaluation ?? _steamedEvaluation,
                     items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
                       value: eval,
                       child: Text(eval.toDisplayString()),
@@ -323,10 +512,14 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
             // メモ入力
             TextField(
               controller: _memoController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'メモ',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                filled: true,
+                fillColor: Colors.white,
               ),
               maxLines: 3,
             ),
@@ -336,9 +529,18 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
             // 保存ボタン
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => _saveRecord(riceType, processes),
-                child: const Text('保存'),
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.save),
+                label: const Text('保存'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: accentColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => _saveRecord(riceType, usage, processes),
               ),
             ),
           ],
@@ -353,6 +555,9 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
     
     return Card(
       margin: const EdgeInsets.all(16.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -368,11 +573,19 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
             ),
             GestureDetector(
               onTap: () => _selectDate(context),
-              child: Text(
-                dateFormat.format(_selectedDate),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  dateFormat.format(_selectedDate),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ),
@@ -391,7 +604,7 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
   }
   
   // 記録保存処理
-  void _saveRecord(String riceType, List<BrewingProcess> processes) {
+  void _saveRecord(String riceType, String usage, List<BrewingProcess> processes) {
     // ロットIDのチェック
     if (_selectedRiceLotIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -437,10 +650,11 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
     bool isUpdate = false;
     
     for (var existingRecord in existingRecords) {
-      // より厳密なマッチング条件が必要かもしれない
+      // より厳密なマッチング条件
       if (existingRecord.riceLotIds.isNotEmpty) {
         final riceLot = riceProvider.getRiceLotById(existingRecord.riceLotIds.first);
         if (riceLot != null && riceLot.riceType == riceType) {
+          // 用途やその他の条件も確認できる
           riceProvider.updateWashingRecord(record);
           isUpdate = true;
           break;
@@ -466,6 +680,9 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
     // フォームをクリア
     _absorptionRateController.clear();
     _memoController.clear();
+    _riceEvaluation = RiceEvaluation.unknown;
+    _steamedEvaluation = RiceEvaluation.unknown;
+    _currentMoisture = null;
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('洗米記録を保存しました')),
