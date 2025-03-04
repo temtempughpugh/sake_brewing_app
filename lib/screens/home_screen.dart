@@ -1,3 +1,5 @@
+// lib/screens/home_screen.dart の更新部分
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import 'package:sake_brewing_app/screens/jungo_list_screen.dart';
 import 'package:sake_brewing_app/screens/koji_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
+import 'package:sake_brewing_app/widgets/app_drawer.dart'; // 追加
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   DateTime _selectedDate = DateTime.now();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>(); // 追加
   
   @override
   void initState() {
@@ -53,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final provider = Provider.of<BrewingDataProvider>(context);
     
     return Scaffold(
+      key: _scaffoldKey, // 追加
       appBar: AppBar(
         title: const Text('日本酒醸造管理'),
         actions: [
@@ -61,8 +66,15 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _importCsvFile,
             tooltip: 'CSVをインポート',
           ),
+          IconButton( // 追加
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              _scaffoldKey.currentState?.openEndDrawer();
+            },
+          ),
         ],
       ),
+      endDrawer: const AppDrawer(), // 右側にドロワーを追加
       body: Column(
         children: [
           // 日付セレクター

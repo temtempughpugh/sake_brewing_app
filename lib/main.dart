@@ -1,7 +1,9 @@
+// lib/main.dart の更新版
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
+import 'package:sake_brewing_app/models/rice_data_provider.dart'; // 追加
 import 'package:sake_brewing_app/screens/home_screen.dart';
 import 'package:sake_brewing_app/services/notification_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -10,14 +12,18 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 保存データの読み込みを試みる
-  final provider = BrewingDataProvider();
-  await provider.loadFromLocalStorage();
+  final brewingProvider = BrewingDataProvider();
+  await brewingProvider.loadFromLocalStorage();
+  
+  // 白米データプロバイダーを初期化（追加）
+  final riceDataProvider = RiceDataProvider();
   
   await NotificationService().init();
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => provider),
+        ChangeNotifierProvider(create: (_) => brewingProvider),
+        ChangeNotifierProvider(create: (_) => riceDataProvider), // 追加
       ],
       child: const MyApp(),
     ),
