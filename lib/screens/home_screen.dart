@@ -52,9 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<BrewingDataProvider>(context);
     
-    // 日付フォーマッター
-    final dateFormat = DateFormat('yyyy年MM月dd日 (E)', 'ja');
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('日本酒醸造管理'),

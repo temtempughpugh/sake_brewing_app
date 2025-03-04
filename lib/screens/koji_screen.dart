@@ -38,119 +38,98 @@ class _KojiScreenState extends State<KojiScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('麹工程管理'),
-        backgroundColor: const Color(0xFF1A1A2E),
-        foregroundColor: Colors.white,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              const Color(0xFF1A1A2E),
-              const Color(0xFF16213E),
-              Colors.black.withOpacity(0.8),
-            ],
-          ),
-        ),
-        child: Column(
-          children: [
-            // 日付選択部分
-            Card(
-              margin: const EdgeInsets.all(16.0),
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: const Color(0xFFF1C40F).withOpacity(0.5),
-                  width: 1,
-                ),
-              ),
-              color: const Color(0xFF0A2647),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                        });
-                      },
-                    ),
-                    GestureDetector(
-                      onTap: () => _selectDate(context),
-                      child: Text(
-                        dateFormat.format(_selectedDate),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+      body: Column(
+        children: [
+          // 日付選択部分
+          Card(
+            margin: const EdgeInsets.all(16.0),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                      });
+                    },
+                  ),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: Text(
+                      dateFormat.format(_selectedDate),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white),
-                      onPressed: () {
-                        setState(() {
-                          _selectedDate = _selectedDate.add(const Duration(days: 1));
-                        });
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios),
+                    onPressed: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.add(const Duration(days: 1));
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
-            
-            // 麹工程リスト
-            Expanded(
-              child: hasNoKojiProcesses
-                  ? Center(
+          ),
+          
+          // 麹工程リスト
+          Expanded(
+            child: hasNoKojiProcesses
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.grain,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '選択した日の麹作業はありません',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.grain,
-                            size: 64,
-                            color: Colors.amber.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '選択した日の麹作業はありません',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                          ),
+                          // 盛り作業
+                          if (moriProcesses.isNotEmpty)
+                            _buildKojiProcessGroup('盛り作業', moriProcesses, moriTotalWeight, Colors.amber),
+                          
+                          // 引込み作業  
+                          if (hikomiProcesses.isNotEmpty)
+                            _buildKojiProcessGroup('引込み作業', hikomiProcesses, hikomiTotalWeight, Colors.orange),
+                              
+                          // 出麹作業
+                          if (dekojiProcesses.isNotEmpty)
+                            _buildKojiProcessGroup('出麹作業', dekojiProcesses, dekojiTotalWeight, Colors.deepOrange),
                         ],
                       ),
-                    )
-                  : SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 盛り作業
-                            if (moriProcesses.isNotEmpty)
-                              _buildKojiProcessGroup('盛り作業', moriProcesses, moriTotalWeight, Colors.amber),
-                            
-                            // 引込み作業  
-                            if (hikomiProcesses.isNotEmpty)
-                              _buildKojiProcessGroup('引込み作業', hikomiProcesses, hikomiTotalWeight, Colors.orange),
-                              
-                            // 出麹作業
-                            if (dekojiProcesses.isNotEmpty)
-                              _buildKojiProcessGroup('出麹作業', dekojiProcesses, dekojiTotalWeight, Colors.deepOrange),
-                          ],
-                        ),
-                      ),
                     ),
-            ),
-          ],
-        ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -158,15 +137,10 @@ class _KojiScreenState extends State<KojiScreen> {
   Widget _buildKojiProcessGroup(String title, List<BrewingProcess> processes, double totalWeight, Color color) {
     return Card(
       margin: const EdgeInsets.only(bottom: 24.0),
-      elevation: 8,
+      elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: color.withOpacity(0.5),
-          width: 1,
-        ),
       ),
-      color: const Color(0xFF16213E),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -174,11 +148,7 @@ class _KojiScreenState extends State<KojiScreen> {
           Container(
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [color.withOpacity(0.8), color.withOpacity(0.4)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: color.withOpacity(0.8),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
@@ -273,7 +243,7 @@ class _KojiScreenState extends State<KojiScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.shade300,
               width: 1,
             ),
           ),
@@ -294,7 +264,6 @@ class _KojiScreenState extends State<KojiScreen> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white.withOpacity(0.9),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -302,7 +271,7 @@ class _KojiScreenState extends State<KojiScreen> {
                           jungo.name,
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.grey.shade700,
                           ),
                         ),
                       ],
@@ -313,7 +282,7 @@ class _KojiScreenState extends State<KojiScreen> {
                         Text(
                           '${process.riceType} (${process.ricePct}%)',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.grey.shade800,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -321,7 +290,7 @@ class _KojiScreenState extends State<KojiScreen> {
                           '${process.amount}kg',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: color.withOpacity(0.9),
+                            color: color,
                           ),
                         ),
                       ],
@@ -333,7 +302,7 @@ class _KojiScreenState extends State<KojiScreen> {
                         style: TextStyle(
                           fontStyle: FontStyle.italic,
                           fontSize: 12,
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
@@ -348,7 +317,7 @@ class _KojiScreenState extends State<KojiScreen> {
                     isCompleted ? '完了' : '未完了',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isCompleted ? Colors.green : Colors.grey.shade400,
+                      color: isCompleted ? Colors.green : Colors.grey,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -360,8 +329,6 @@ class _KojiScreenState extends State<KojiScreen> {
                     },
                     activeColor: Colors.green,
                     activeTrackColor: Colors.green.withOpacity(0.3),
-                    inactiveThumbColor: Colors.grey.shade400,
-                    inactiveTrackColor: Colors.grey.shade700,
                   ),
                 ],
               ),
@@ -371,7 +338,6 @@ class _KojiScreenState extends State<KojiScreen> {
                 icon: const Icon(
                   Icons.arrow_forward_ios,
                   size: 16,
-                  color: Colors.white70,
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -397,20 +363,6 @@ class _KojiScreenState extends State<KojiScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       locale: const Locale('ja'),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFF1C40F),
-              onPrimary: Colors.black,
-              surface: Color(0xFF0A2647),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF1A1A2E),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {

@@ -30,8 +30,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    
-    // ThemeDataの部分を修正
 
     return MaterialApp(
       title: '日本酒醸造管理',

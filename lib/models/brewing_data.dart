@@ -51,8 +51,6 @@ class BrewingProcess {
     this.waterAbsorption,
   });
   
-  // BrewingProcess クラスの日付メソッド部分を修正
-
   // 引込み日を取得（洗米日の翌日）
   DateTime getHikomiDate() {
     if (type == ProcessType.koji) {
@@ -185,7 +183,6 @@ class BrewingDataProvider with ChangeNotifier {
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
   
-  // loadFromFirestore メソッドを次のように変更
 Future<void> loadFromLocalStorage() async {
   _isLoading = true;
   notifyListeners();
@@ -204,7 +201,6 @@ Future<void> loadFromLocalStorage() async {
   }
 }
 
-// saveToFirestore メソッドを次のように変更
 Future<void> saveToLocalStorage() async {
   _isLoading = true;
   notifyListeners();
