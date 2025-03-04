@@ -115,18 +115,17 @@ final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対
             }
             
             // 工程オブジェクトの作成
-            BrewingProcess process = BrewingProcess(
-              jungoId: processJungoId,
-              name: processType,
-              type: processCategory,
-              date: processDate,
-              washingDate: processCategory == ProcessType.koji ? 
-                  processDate.subtract(const Duration(days: 1)) : processDate,
-              riceType: riceType,
-              ricePct: ricePct,
-              amount: amount,
-              status: status,
-            );
+BrewingProcess process = BrewingProcess(
+  jungoId: processJungoId,
+  name: processType,
+  type: processCategory,
+  date: processDate,
+  washingDate: processDate,  // 修正: CSVの日付をそのまま洗米日として設定
+  riceType: riceType,
+  ricePct: ricePct,
+  amount: amount,
+  status: status,
+);
             
             processes.add(process);
           }

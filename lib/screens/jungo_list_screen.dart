@@ -34,58 +34,54 @@ class _JungoListScreenState extends State<JungoListScreen> {
       
       final now = DateTime.now();
       
-      // ステータスフィルター（正確なルールに基づく）
-      if (_filterStatus == 'moromi') {
-        // 留日の翌日から上槽日までは醪状態
-        return now.isAfter(jungo.startDate.add(const Duration(days: 1))) && 
-               now.isBefore(jungo.endDate);
-      } else if (_filterStatus == 'shubo') {
-        // 酒母状態の判定（モト掛の仕込み日から添掛の洗米日まで）
-        bool hasMoto = false;
-        DateTime? motoWorkDate;
-        bool hasSoe = false;
-        DateTime? soeWashingDate;
-        
-        for (var process in jungo.processes) {
-          if (process.name.contains('モト') && process.type == ProcessType.moromi) {
-            hasMoto = true;
-            motoWorkDate = process.getWorkDate();
-          }
-          if (process.name.contains('添') && process.type == ProcessType.washing) {
-            hasSoe = true;
-            soeWashingDate = process.washingDate;
-          } else if (process.name.contains('添') && process.type == ProcessType.moromi) {
-            hasSoe = true;
-            soeWashingDate = process.washingDate;
-          }
-        }
-        
-        if (hasMoto && hasSoe && motoWorkDate != null && soeWashingDate != null) {
-          return now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
-        }
-        return false;
-      } else if (_filterStatus == 'brewing') {
-        // 仕込み状態の判定（添掛の仕込み日から留日まで）
-        bool hasSoe = false;
-        DateTime? soeWorkDate;
-        
-        for (var process in jungo.processes) {
-          if (process.name.contains('添') && process.type == ProcessType.moromi) {
-            hasSoe = true;
-            soeWorkDate = process.getWorkDate();
-          }
-        }
-        
-        if (hasSoe && soeWorkDate != null) {
-          return now.isAfter(soeWorkDate) && now.isBefore(jungo.startDate);
-        }
-        return false;
-      } else if (_filterStatus == 'completed') {
-        // 完了の判定
-        return now.isAfter(jungo.endDate);
-      }
-      
-      return true; // 'all'の場合はすべて表示
+     // ステータスフィルター（正確なルールに基づく）
+if (_filterStatus == 'moromi') {
+  // 留日の翌日から上槽日までは醪状態
+  return now.isAfter(jungo.startDate.add(const Duration(days: 1))) && 
+         now.isBefore(jungo.endDate);
+} else if (_filterStatus == 'shubo') {
+  // 酒母状態の判定（モト掛の仕込み日から添掛の洗米日まで）
+  bool hasMoto = false;
+  DateTime? motoWorkDate;
+  bool hasSoe = false;
+  DateTime? soeWashingDate;
+  
+ for (var process in jungo.processes) {
+  if (process.name.contains('モト') && process.type == ProcessType.moromi) {
+    motoWorkDate = process.getWorkDate();
+  }
+  if (process.name.contains('添') && 
+     (process.type == ProcessType.washing || process.type == ProcessType.moromi)) {
+    soeWashingDate = process.washingDate;
+  }
+}
+  
+  if (hasMoto && hasSoe && motoWorkDate != null && soeWashingDate != null) {
+    return now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
+  }
+  return false;
+} else if (_filterStatus == 'brewing') {
+  // 仕込み状態の判定（添掛の仕込み日から留日まで）
+  bool hasSoe = false;
+  DateTime? soeWorkDate;
+  
+  for (var process in jungo.processes) {
+    if (process.name.contains('添') && process.type == ProcessType.moromi) {
+      hasSoe = true;
+      soeWorkDate = process.getWorkDate();
+    }
+  }
+  
+  if (hasSoe && soeWorkDate != null) {
+    return now.isAfter(soeWorkDate) && now.isBefore(jungo.startDate);
+  }
+  return false;
+} else if (_filterStatus == 'completed') {
+  // 完了の判定
+  return now.isAfter(jungo.endDate);
+}
+
+return true; // 'all'の場合はすべて表示
     }).toList();
     
     // 順号でソート
@@ -229,23 +225,28 @@ class _JungoListScreenState extends State<JungoListScreen> {
     bool isCompleted = now.isAfter(jungo.endDate);
     bool isMoromi = now.isAfter(jungo.startDate.add(const Duration(days: 1))) && now.isBefore(jungo.endDate);
     
-    // 酒母状態の判定
-    bool isShubo = false;
-    DateTime? motoWorkDate;
-    DateTime? soeWashingDate;
-    
-    for (var process in jungo.processes) {
-      if (process.name.contains('モト') && process.type == ProcessType.moromi) {
-        motoWorkDate = process.getWorkDate();
-      }
-      if (process.name.contains('添') && process.type == ProcessType.moromi) {
-        soeWashingDate = process.washingDate;
-      }
-    }
-    
-    if (motoWorkDate != null && soeWashingDate != null) {
-      isShubo = now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
-    }
+    /// 酒母状態の判定
+bool isShubo = false;
+DateTime? motoWorkDate;
+DateTime? soeWashingDate;
+bool hasMoto = false;
+bool hasSoe = false;
+
+for (var process in jungo.processes) {
+  if (process.name.contains('モト') && process.type == ProcessType.moromi) {
+    hasMoto = true;
+    motoWorkDate = process.getWorkDate();
+  }
+  if (process.name.contains('添') && 
+     (process.type == ProcessType.washing || process.type == ProcessType.moromi)) {
+    hasSoe = true;
+    soeWashingDate = process.washingDate;
+  }
+}
+
+if (hasMoto && hasSoe && motoWorkDate != null && soeWashingDate != null) {
+  isShubo = now.isAfter(motoWorkDate) && now.isBefore(soeWashingDate);
+}
     
     // 仕込み状態の判定
     bool isBrewing = false;
