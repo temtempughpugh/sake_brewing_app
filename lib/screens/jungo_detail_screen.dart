@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
 import 'package:sake_brewing_app/screens/tank_management_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math';
 
 class JungoDetailScreen extends StatefulWidget {
   final int jungoId;
@@ -122,6 +123,84 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
   Widget _buildBasicInfoCard(JungoData jungo, bool isToday) {
     final dayCount = jungo.currentDayCount;
     final totalDays = jungo.totalDayCount;
+    final now = DateTime.now();
+    
+    // 各工程の日付特定
+    DateTime? motoWorkDate;
+    DateTime? firstProcessWashingDate;
+    DateTime? soeDate;
+    DateTime? nakiDate;
+    DateTime? tomeDate;
+    bool hasMoto = false;
+    bool hasFirstProcess = false;
+    
+    // 状態の判定
+    bool isShubo = false;
+    bool isBrewing = false;
+    bool isMoromi = now.isAfter(jungo.startDate.add(const Duration(days: 1))) && 
+                   now.isBefore(jungo.endDate);
+    bool isCompleted = now.isAfter(jungo.endDate);
+    
+    // 仕込み段階
+    int brewingStage = 0;
+    
+    for (var process in jungo.processes) {
+      // モト系工程の検出
+      if (process.name.toLowerCase().contains('モト')) {
+        hasMoto = true;
+        if (process.type == ProcessType.moromi) {
+          motoWorkDate = process.getWorkDate();
+        }
+      }
+      
+      // 初掛/添掛の検出
+      if ((process.name.toLowerCase().contains('初') || 
+           process.name.toLowerCase().contains('添')) && 
+          process.type == ProcessType.moromi) {
+        hasFirstProcess = true;
+        firstProcessWashingDate = process.washingDate;
+        soeDate = process.getWorkDate();
+      }
+      
+      // 仲掛の検出
+      if (process.name.toLowerCase().contains('仲') && 
+          process.type == ProcessType.moromi) {
+        nakiDate = process.getWorkDate();
+      }
+      
+      // 留掛の検出
+      if (process.name.toLowerCase().contains('留') && 
+          process.type == ProcessType.moromi) {
+        tomeDate = process.getWorkDate();
+      }
+    }
+    
+    // 酒母状態の判定
+    if (hasMoto && hasFirstProcess && motoWorkDate != null && firstProcessWashingDate != null) {
+      isShubo = now.isAfter(motoWorkDate) && now.isBefore(firstProcessWashingDate.add(const Duration(days: 1)));
+    }
+    
+    // 仕込み中状態の判定
+    if (soeDate != null && tomeDate != null) {
+      isBrewing = now.isAfter(soeDate.subtract(const Duration(days: 1))) && 
+                  now.isBefore(tomeDate.add(const Duration(days: 1)));
+      
+      // 仕込み段階の判定
+      if (isBrewing) {
+        final nowStr = DateFormat('yyyy-MM-dd').format(now);
+        
+        if (soeDate != null && DateFormat('yyyy-MM-dd').format(soeDate) == nowStr) {
+          brewingStage = 1; // 添
+        } else if (soeDate != null && 
+                  DateFormat('yyyy-MM-dd').format(soeDate.add(const Duration(days: 1))) == nowStr) {
+          brewingStage = 2; // 踊（添の翌日）
+        } else if (nakiDate != null && DateFormat('yyyy-MM-dd').format(nakiDate) == nowStr) {
+          brewingStage = 3; // 仲
+        } else if (tomeDate != null && DateFormat('yyyy-MM-dd').format(tomeDate) == nowStr) {
+          brewingStage = 4; // 留
+        }
+      }
+    }
     
     return Card(
       elevation: 2,
@@ -179,10 +258,20 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildInfoItem('留日', _formatDate(jungo.startDate)),
+                  child: _buildInfoItem(
+                    isShubo ? 'モト掛日' : '留日', 
+                    isShubo && motoWorkDate != null 
+                      ? _formatDate(motoWorkDate)
+                      : _formatDate(jungo.startDate)
+                  ),
                 ),
                 Expanded(
-                  child: _buildInfoItem('上槽予定', _formatDate(jungo.endDate)),
+                  child: _buildInfoItem(
+                    isShubo ? 'モト卸予定' : '上槽予定', 
+                    isShubo && firstProcessWashingDate != null 
+                      ? _formatDate(firstProcessWashingDate)
+                      : _formatDate(jungo.endDate)
+                  ),
                 ),
               ],
             ),
@@ -193,7 +282,11 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '進捗: ${dayCount}日目 / $totalDays日間',
+                  isShubo && motoWorkDate != null && firstProcessWashingDate != null
+                    ? '酒母進捗: ${now.difference(motoWorkDate).inDays}日目 / ${max(1, firstProcessWashingDate.difference(motoWorkDate).inDays + 1)}日間'
+                    : isBrewing
+                      ? '仕込み段階: ${brewingStage}/4'
+                      : '進捗: ${dayCount}日目 / ${totalDays}日間',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -201,35 +294,108 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Stack(
-                  children: [
-                    Container(
-                      height: 12,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: dayCount / totalDays,
-                      child: Container(
-                        height: 12,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(context).colorScheme.primary,
-                              Theme.of(context).colorScheme.secondary,
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(6),
+                isBrewing 
+                  // 仕込み中は4段階表示
+                  ? Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: brewingStage >= 1 
+                                    ? Theme.of(context).colorScheme.primary 
+                                    : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(6),
+                                    bottomLeft: Radius.circular(6),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                height: 12,
+                                color: brewingStage >= 2 
+                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.8) 
+                                  : Colors.grey.shade200,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                height: 12,
+                                color: brewingStage >= 3 
+                                  ? Theme.of(context).colorScheme.secondary.withOpacity(0.8) 
+                                  : Colors.grey.shade200,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Container(
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: brewingStage >= 4 
+                                    ? Theme.of(context).colorScheme.secondary 
+                                    : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.only(
+                                    topRight: Radius.circular(6),
+                                    bottomRight: Radius.circular(6),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('添', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                            Text('踊', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                            Text('仲', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                            Text('留', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Stack(
+                      children: [
+                        Container(
+                          height: 12,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        FractionallySizedBox(
+                          widthFactor: isShubo && motoWorkDate != null && firstProcessWashingDate != null
+                            // 酒母期間はモト掛からモト卸までの進捗
+                            ? (now.difference(motoWorkDate).inDays) / 
+                               max(1, firstProcessWashingDate.difference(motoWorkDate).inDays + 1)
+                            // 醪期間は留日から上槽日までの進捗
+                            : dayCount / max(1, totalDays),
+                          child: Container(
+                            height: 12,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Theme.of(context).colorScheme.primary,
+                                  Theme.of(context).colorScheme.secondary,
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ],
             ),
           ],
@@ -263,142 +429,142 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
   
   // 仕込み配合表の作成
   Widget _buildBrewingCompositionTable(JungoData jungo) {
-  // プロセスから配合情報を集計
-  Map<String, double> kojiAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
-  Map<String, double> kakeAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
-  
-  for (var process in jungo.processes) {
-    String stage = '';
+    // プロセスから配合情報を集計
+    Map<String, double> kojiAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
+    Map<String, double> kakeAmounts = {'モト': 0, '添': 0, '仲': 0, '留': 0, '四段': 0};
     
-    if (process.name.contains('モト')) {
-      stage = 'モト';
-    } else if (process.name.contains('添') || process.name.contains('初掛') || process.name.contains('初麹')) {
-      // 「添」または「初掛」または「初麹」を含む工程は全て「添」に分類
-      stage = '添';
-    } else if (process.name.contains('仲')) {
-      stage = '仲';
-    } else if (process.name.contains('留')) {
-      stage = '留';
-    } else if (process.name.contains('四段')) {
-      stage = '四段';
-    } else {
-      // デバッグ出力を追加して、どの工程がスキップされているかを確認
-      print('スキップされた工程: ${process.name} (タイプ: ${process.type})');
-      continue; // 該当しない工程はスキップ
-    }
+    for (var process in jungo.processes) {
+      String stage = '';
       
-      if (process.type == ProcessType.koji) {
-        kojiAmounts[stage] = (kojiAmounts[stage] ?? 0) + process.amount;
-      } else if (process.type == ProcessType.moromi || process.type == ProcessType.other) {
-        kakeAmounts[stage] = (kakeAmounts[stage] ?? 0) + process.amount;
+      if (process.name.contains('モト')) {
+        stage = 'モト';
+      } else if (process.name.contains('添') || process.name.contains('初掛') || process.name.contains('初麹')) {
+        // 「添」または「初掛」または「初麹」を含む工程は全て「添」に分類
+        stage = '添';
+      } else if (process.name.contains('仲')) {
+        stage = '仲';
+      } else if (process.name.contains('留')) {
+        stage = '留';
+      } else if (process.name.contains('四段')) {
+        stage = '四段';
+      } else {
+        // デバッグ出力を追加して、どの工程がスキップされているかを確認
+        print('スキップされた工程: ${process.name} (タイプ: ${process.type})');
+        continue; // 該当しない工程はスキップ
       }
-    }
-    
-    // 合計計算
-    final totalKoji = kojiAmounts.values.fold<double>(0, (sum, val) => sum + val);
-    final totalKake = kakeAmounts.values.fold<double>(0, (sum, val) => sum + val);
-    final totalRice = totalKoji + totalKake;
-    
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '仕込み配合表 (kg)',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Table(
-                border: TableBorder.all(
-                  color: Colors.grey.shade300,
-                  width: 1,
-                  style: BorderStyle.solid,
-                ),
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                columnWidths: const {
-                  0: FixedColumnWidth(80),
-                  1: FixedColumnWidth(70),
-                  2: FixedColumnWidth(70),
-                  3: FixedColumnWidth(70),
-                  4: FixedColumnWidth(70),
-                  5: FixedColumnWidth(70),
-                  6: FixedColumnWidth(70),
-                },
-                children: [
-                  // ヘッダー行
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                    ),
-                    children: [
-                      _buildTableHeader(''),
-                      _buildTableHeader('モト'),
-                      _buildTableHeader('添'),
-                      _buildTableHeader('仲'),
-                      _buildTableHeader('留'),
-                      _buildTableHeader('四段'),
-                      _buildTableHeader('合計'),
-                    ],
-                  ),
-                  // 麹米行
-                  TableRow(
-                    children: [
-                      _buildTableCell('麹米', isHeader: true),
-                      _buildTableCell('${kojiAmounts['モト']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kojiAmounts['添']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kojiAmounts['仲']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kojiAmounts['留']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kojiAmounts['四段']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${totalKoji.toStringAsFixed(0)}', isBold: true),
-                    ],
-                  ),
-                  // 掛米行
-                  TableRow(
-                    children: [
-                      _buildTableCell('掛米', isHeader: true),
-                      _buildTableCell('${kakeAmounts['モト']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kakeAmounts['添']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kakeAmounts['仲']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kakeAmounts['留']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${kakeAmounts['四段']!.toStringAsFixed(0)}'),
-                      _buildTableCell('${totalKake.toStringAsFixed(0)}', isBold: true),
-                    ],
-                  ),
-                  // 総米行
-                  TableRow(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                    ),
-                    children: [
-                      _buildTableCell('総米', isHeader: true, isBold: true),
-                      _buildTableCell('${(kojiAmounts['モト']! + kakeAmounts['モト']!).toStringAsFixed(0)}', isBold: true),
-                      _buildTableCell('${(kojiAmounts['添']! + kakeAmounts['添']!).toStringAsFixed(0)}', isBold: true),
-                      _buildTableCell('${(kojiAmounts['仲']! + kakeAmounts['仲']!).toStringAsFixed(0)}', isBold: true),
-                      _buildTableCell('${(kojiAmounts['留']! + kakeAmounts['留']!).toStringAsFixed(0)}', isBold: true),
-                      _buildTableCell('${(kojiAmounts['四段']! + kakeAmounts['四段']!).toStringAsFixed(0)}', isBold: true),
-                      _buildTableCell('${totalRice.toStringAsFixed(0)}', isBold: true, isHighlighted: true),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+        
+        if (process.type == ProcessType.koji) {
+          kojiAmounts[stage] = (kojiAmounts[stage] ?? 0) + process.amount;
+        } else if (process.type == ProcessType.moromi || process.type == ProcessType.other) {
+          kakeAmounts[stage] = (kakeAmounts[stage] ?? 0) + process.amount;
+        }
+      }
+      
+      // 合計計算
+      final totalKoji = kojiAmounts.values.fold<double>(0, (sum, val) => sum + val);
+      final totalKake = kakeAmounts.values.fold<double>(0, (sum, val) => sum + val);
+      final totalRice = totalKoji + totalKake;
+      
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      ),
-    );
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '仕込み配合表 (kg)',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Table(
+                  border: TableBorder.all(
+                    color: Colors.grey.shade300,
+                    width: 1,
+                    style: BorderStyle.solid,
+                  ),
+                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                  columnWidths: const {
+                    0: FixedColumnWidth(80),
+                    1: FixedColumnWidth(70),
+                    2: FixedColumnWidth(70),
+                    3: FixedColumnWidth(70),
+                    4: FixedColumnWidth(70),
+                    5: FixedColumnWidth(70),
+                    6: FixedColumnWidth(70),
+                  },
+                  children: [
+                    // ヘッダー行
+                    TableRow(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                      ),
+                      children: [
+                        _buildTableHeader(''),
+                        _buildTableHeader('モト'),
+                        _buildTableHeader('添'),
+                        _buildTableHeader('仲'),
+                        _buildTableHeader('留'),
+                        _buildTableHeader('四段'),
+                        _buildTableHeader('合計'),
+                      ],
+                    ),
+                    // 麹米行
+                    TableRow(
+                      children: [
+                        _buildTableCell('麹米', isHeader: true),
+                        _buildTableCell('${kojiAmounts['モト']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kojiAmounts['添']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kojiAmounts['仲']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kojiAmounts['留']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kojiAmounts['四段']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${totalKoji.toStringAsFixed(0)}', isBold: true),
+                      ],
+                    ),
+                    // 掛米行
+                    TableRow(
+                      children: [
+                        _buildTableCell('掛米', isHeader: true),
+                        _buildTableCell('${kakeAmounts['モト']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kakeAmounts['添']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kakeAmounts['仲']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kakeAmounts['留']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${kakeAmounts['四段']!.toStringAsFixed(0)}'),
+                        _buildTableCell('${totalKake.toStringAsFixed(0)}', isBold: true),
+                      ],
+                    ),
+                    // 総米行
+                    TableRow(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                      ),
+                      children: [
+                        _buildTableCell('総米', isHeader: true, isBold: true),
+                        _buildTableCell('${(kojiAmounts['モト']! + kakeAmounts['モト']!).toStringAsFixed(0)}', isBold: true),
+                        _buildTableCell('${(kojiAmounts['添']! + kakeAmounts['添']!).toStringAsFixed(0)}', isBold: true),
+                        _buildTableCell('${(kojiAmounts['仲']! + kakeAmounts['仲']!).toStringAsFixed(0)}', isBold: true),
+                        _buildTableCell('${(kojiAmounts['留']! + kakeAmounts['留']!).toStringAsFixed(0)}', isBold: true),
+                        _buildTableCell('${(kojiAmounts['四段']! + kakeAmounts['四段']!).toStringAsFixed(0)}', isBold: true),
+                        _buildTableCell('${totalRice.toStringAsFixed(0)}', isBold: true, isHighlighted: true),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
   }
 
   Widget _buildTableHeader(String text) {
