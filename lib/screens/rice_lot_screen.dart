@@ -241,46 +241,7 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 品種選択
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: '品種',
-                  border: OutlineInputBorder(),
-                ),
-                value: riceType,
-                items: RiceDataProvider.riceTypes
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    riceType = value;
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // 産地選択
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: '産地',
-                  border: OutlineInputBorder(),
-                ),
-                value: origin,
-                items: RiceDataProvider.origins
-                    .map((org) => DropdownMenuItem(
-                          value: org,
-                          child: Text(org),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    origin = value;
-                  }
-                },
-              ),
+              // 品種選
               const SizedBox(height: 16),
               
               // 精米歩合
@@ -418,17 +379,20 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
   }
 
   // 白米ロット追加ダイアログ
-  Future<void> _showAddLotDialog(BuildContext context) async {
-    final provider = Provider.of<RiceDataProvider>(context, listen: false);
-    final newLotId = provider.generateNextLotId();
-    
-    String riceType = RiceDataProvider.riceTypes.first;
-    String origin = RiceDataProvider.origins.first;
-    int polishingRatio = 70;
-    DateTime? arrivalDate;
-    String? polishingNo;
-    double moisture = 14.5;
-    bool isNew = true;
+// 白米ロット追加ダイアログ
+Future<void> _showAddLotDialog(BuildContext context) async {
+  final provider = Provider.of<RiceDataProvider>(context, listen: false);
+  final newLotId = provider.generateNextLotId();
+  
+  // 修正：静的アクセスからインスタンスアクセスに変更
+  String riceType = provider.riceTypes.isNotEmpty ? provider.riceTypes.first : '未指定';
+  // 修正：origins は削除されたので、デフォルト値を直接指定
+  String origin = '未指定'; // または任意のデフォルト値
+  int polishingRatio = 70;
+  DateTime? arrivalDate;
+  String? polishingNo;
+  double moisture = 14.5;
+  bool isNew = true;
     
     await showDialog(
       context: context,
@@ -443,46 +407,24 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
               const SizedBox(height: 16),
               
               // 品種選択
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: '品種',
-                  border: OutlineInputBorder(),
-                ),
-                value: riceType,
-                items: RiceDataProvider.riceTypes
-                    .map((type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(type),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    riceType = value;
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // 産地選択
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: '産地',
-                  border: OutlineInputBorder(),
-                ),
-                value: origin,
-                items: RiceDataProvider.origins
-                    .map((org) => DropdownMenuItem(
-                          value: org,
-                          child: Text(org),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    origin = value;
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
+DropdownButtonFormField<String>(
+  decoration: const InputDecoration(
+    labelText: '品種',
+    border: OutlineInputBorder(),
+  ),
+  value: provider.riceTypes.contains(riceType) ? riceType : provider.riceTypes.first,
+  items: provider.riceTypes
+      .map((type) => DropdownMenuItem(
+            value: type,
+            child: Text(type),
+          ))
+      .toList(),
+  onChanged: (value) {
+    if (value != null) {
+      riceType = value;
+    }
+  },
+),
               
               // 精米歩合
               TextFormField(

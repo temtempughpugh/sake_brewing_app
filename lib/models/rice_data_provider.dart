@@ -1,4 +1,5 @@
 // lib/models/rice_data_provider.dart
+import 'package:sake_brewing_app/services/csv_service.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,30 +16,14 @@ class RiceDataProvider with ChangeNotifier {
   List<WashingRecord> get washingRecords => _washingRecords;
   bool get isLoading => _isLoading;
 
-  // 品種リスト
-  static const List<String> riceTypes = [
-    '山田錦',
-    '八反錦',
-    '雄町',
-    '千本錦',
-    '加工用米',
-    '八反35号',
-    '未希米',
-    'こいもみじ',
-    'こいおまち',
-    '萌いぶき',
-    '中生新千本',
-    '白鶴錦',
-    '愛山',
-    '朝日米',
-  ];
+ // 品種リストをゲッターに変更
+List<String> get riceTypes {
+  final types = CsvService.getExtractedRiceTypes();
+  // CSVから抽出できなかった場合のフォールバック
+  return types.isEmpty ? ['未指定'] : types;
+}
 
-  // 産地リスト
-  static const List<String> origins = [
-    '兵庫県産',
-    '広島県産',
-    '岡山県産',
-  ];
+// 産地は使用しない
 
   // コンストラクタ
   RiceDataProvider() {

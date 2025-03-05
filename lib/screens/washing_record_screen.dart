@@ -21,6 +21,21 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
   RiceEvaluation _steamedEvaluation = RiceEvaluation.unknown;
   double? _currentMoisture;
   
+  // ドロップダウンの値を検証するヘルパーメソッド
+String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availableLots) {
+  // 選択されたIDがある場合
+  if (selectedIds.isNotEmpty) {
+    // 選択されたIDが利用可能なロットの中に存在するか確認
+    bool idExists = availableLots.any((lot) => lot.lotId == selectedIds.first);
+    if (idExists) {
+      return selectedIds.first;
+    }
+  }
+  
+  // 選択されたIDがない、または利用可能なロットの中に存在しない場合
+  return availableLots.isEmpty ? null : availableLots.first.lotId;
+}
+  
   // 選択された白米ロットID
   List<String> _selectedRiceLotIds = [];
   
@@ -367,46 +382,48 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
             const SizedBox(height: 12),
             
             // 白米ロット選択（ドロップダウン）
-            DropdownButtonFormField<String>(
-              decoration: InputDecoration(
-                labelText: '白米ロット',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              value: _selectedRiceLotIds.isNotEmpty ? _selectedRiceLotIds.first : null,
-              items: [
-                ...relatedLots.map((lot) => DropdownMenuItem(
-                  value: lot.lotId,
-                  child: Text(
-                    '${lot.lotId} - ${lot.riceType} (${lot.origin}, ${lot.polishingRatio}%, No.${lot.polishingNo ?? "なし"})',
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                )),
-                if (relatedLots.isEmpty)
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('ロットを追加してください'),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedRiceLotIds = [value];
-                    
-                    // 選択されたロットの水分値を取得
-                    final lot = Provider.of<RiceDataProvider>(context, listen: false)
-                        .getRiceLotById(value);
-                    if (lot != null) {
-                      _currentMoisture = lot.moisture;
-                    }
-                  });
-                }
-              },
-            ),
+            // 白米ロット選択（ドロップダウン）
+DropdownButtonFormField<String>(
+  decoration: InputDecoration(
+    labelText: '白米ロット',
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    filled: true,
+    fillColor: Colors.white,
+  ),
+  // 値の検証を追加
+  value: _validateDropdownValue(_selectedRiceLotIds, relatedLots),
+  items: relatedLots.isEmpty
+      ? [
+          const DropdownMenuItem(
+            value: null,
+            child: Text('ロットを追加してください'),
+          )
+        ]
+      : relatedLots.map((lot) => DropdownMenuItem(
+          value: lot.lotId,
+          child: Text(
+            '${lot.lotId} - ${lot.riceType} (${lot.polishingRatio}%, No.${lot.polishingNo ?? "なし"})',
+            style: const TextStyle(fontSize: 13),
+          ),
+        )).toList(),
+  onChanged: (value) {
+    if (value != null) {
+      setState(() {
+        _selectedRiceLotIds = [value];
+        
+        // 選択されたロットの水分値を取得
+        final lot = Provider.of<RiceDataProvider>(context, listen: false)
+            .getRiceLotById(value);
+        if (lot != null) {
+          _currentMoisture = lot.moisture;
+        }
+      });
+    }
+  },
+),
             
             // 白米水分表示（選択されたロットから）
             if (_currentMoisture != null) ...[

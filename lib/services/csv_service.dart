@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
 
 class CsvService {
+  // 追加: CSVから抽出した品種の一覧を保持する変数
+  static Set<String> extractedRiceTypes = {};
+
   // CSVファイルを解析してJungoDataのリストに変換
   static Future<List<JungoData>> parseBrewingCsv(String csvString) async {
     try {
@@ -44,14 +47,14 @@ class CsvService {
         try {
           // 基本情報の取得
           // 基本情報の取得部分を修正
-final jungoId = int.tryParse(row[0].toString()) ?? 0;  // 数値でない場合は0を使用
-final size = int.tryParse(row[1].toString()) ?? 0;
-final startDateStr = row[2].toString();
-final category = row[3].toString();
-final type = row[4].toString();
-final endDateStr = row[5].toString();
-// タンク番号を文字列として処理（これが重要）
-final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対応
+          final jungoId = int.tryParse(row[0].toString()) ?? 0;  // 数値でない場合は0を使用
+          final size = int.tryParse(row[1].toString()) ?? 0;
+          final startDateStr = row[2].toString();
+          final category = row[3].toString();
+          final type = row[4].toString();
+          final endDateStr = row[5].toString();
+          // タンク番号を文字列として処理（これが重要）
+          final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対応
           
           // 日付の解析（デバッグ出力付き）
           print('日付文字列: 留日=$startDateStr, 上槽予定=$endDateStr');
@@ -80,6 +83,11 @@ final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対
             
             // 空の工程はスキップ
             if (processType.isEmpty || processDateStr.isEmpty) continue;
+
+            // 追加: CSVから品種情報を抽出して保存
+            if (riceType.isNotEmpty) {
+              extractedRiceTypes.add(riceType);
+            }
             
             // 工程日付の解析
             DateTime processDate = _parseStandardDate(processDateStr);
@@ -115,17 +123,17 @@ final tankNo = row[6].toString();  // 数値の場合も文字列の場合も対
             }
             
             // 工程オブジェクトの作成
-BrewingProcess process = BrewingProcess(
-  jungoId: processJungoId,
-  name: processType,
-  type: processCategory,
-  date: processDate,
-  washingDate: processDate,  // 修正: CSVの日付をそのまま洗米日として設定
-  riceType: riceType,
-  ricePct: ricePct,
-  amount: amount,
-  status: status,
-);
+            BrewingProcess process = BrewingProcess(
+              jungoId: processJungoId,
+              name: processType,
+              type: processCategory,
+              date: processDate,
+              washingDate: processDate,  // 修正: CSVの日付をそのまま洗米日として設定
+              riceType: riceType,
+              ricePct: ricePct,
+              amount: amount,
+              status: status,
+            );
             
             processes.add(process);
           }
@@ -161,6 +169,7 @@ BrewingProcess process = BrewingProcess(
       }
       
       print('CSV解析完了: ${jungoList.length}件の順号データを取得');
+      print('抽出された品種数: ${extractedRiceTypes.length}');
       return jungoList;
     } catch (e) {
       print('CSV解析でエラー: $e');
@@ -219,5 +228,12 @@ BrewingProcess process = BrewingProcess(
       print('日付解析エラー: $e, 日付文字列: $dateStr');
       return DateTime.now();
     }
+  }
+
+  // 追加: 抽出した品種リストを取得するメソッド
+  static List<String> getExtractedRiceTypes() {
+    final types = extractedRiceTypes.toList();
+    types.sort(); // アルファベット順に並べ替え
+    return types;
   }
 }
