@@ -17,33 +17,48 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
   DateTime _selectedDate = DateTime.now();
   final _absorptionRateController = TextEditingController();
   final _memoController = TextEditingController();
+  String _absorptionRateText = '';  // 吸水率の状態を追跡する変数
   RiceEvaluation _riceEvaluation = RiceEvaluation.unknown;
   RiceEvaluation _steamedEvaluation = RiceEvaluation.unknown;
   double? _currentMoisture;
-  
-  // ドロップダウンの値を検証するヘルパーメソッド
-String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availableLots) {
-  // 選択されたIDがある場合
-  if (selectedIds.isNotEmpty) {
-    // 選択されたIDが利用可能なロットの中に存在するか確認
-    bool idExists = availableLots.any((lot) => lot.lotId == selectedIds.first);
-    if (idExists) {
-      return selectedIds.first;
-    }
-  }
-  
-  // 選択されたIDがない、または利用可能なロットの中に存在しない場合
-  return availableLots.isEmpty ? null : availableLots.first.lotId;
-}
+  bool _isProcessingSave = false;  // 保存処理中かどうかを追跡するフラグ
   
   // 選択された白米ロットID
   List<String> _selectedRiceLotIds = [];
   
   @override
+  void initState() {
+    super.initState();
+    _absorptionRateController.addListener(_updateAbsorptionRateText);
+  }
+  
+  void _updateAbsorptionRateText() {
+    setState(() {
+      _absorptionRateText = _absorptionRateController.text;
+    });
+  }
+  
+  @override
   void dispose() {
+    _absorptionRateController.removeListener(_updateAbsorptionRateText);
     _absorptionRateController.dispose();
     _memoController.dispose();
     super.dispose();
+  }
+  
+  // ドロップダウンの値を検証するヘルパーメソッド
+  String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availableLots) {
+    // 選択されたIDがある場合
+    if (selectedIds.isNotEmpty) {
+      // 選択されたIDが利用可能なロットの中に存在するか確認
+      bool idExists = availableLots.any((lot) => lot.lotId == selectedIds.first);
+      if (idExists) {
+        return selectedIds.first;
+      }
+    }
+    
+    // 選択されたIDがない、または利用可能なロットの中に存在しない場合
+    return availableLots.isEmpty ? null : availableLots.first.lotId;
   }
   
   @override
@@ -51,7 +66,7 @@ String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availabl
     final brewingProvider = Provider.of<BrewingDataProvider>(context);
     final riceProvider = Provider.of<RiceDataProvider>(context);
     
-    // 選択された日付の洗米工程を取得
+    // 選択された日付の洗米工程を取得（四段も含める）
     final washingProcesses = _getWashingProcessesForDate(brewingProvider.jungoList, _selectedDate);
     
     // 麹用と掛米用に分離 - 工程タイプと名前の両方を考慮
@@ -60,9 +75,10 @@ String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availabl
       p.name.toLowerCase().contains('麹') // または名前に「麹」が含まれる
     ).toList();
     
+    // 掛米の場合は四段も含める
     final kakemaiProcesses = washingProcesses.where((p) => 
-      p.type != ProcessType.koji && // 工程タイプが麹ではない
-      !p.name.toLowerCase().contains('麹') // かつ名前に「麹」が含まれない
+      (p.type != ProcessType.koji && !p.name.toLowerCase().contains('麹')) || // 麹でない通常の掛米
+      p.name.toLowerCase().contains('四段') // または四段工程
     ).toList();
     
     // 品種と用途でグループ化
@@ -72,104 +88,122 @@ String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availabl
     // 選択日の既存洗米記録を取得
     final existingRecords = riceProvider.getWashingRecordsByDate(_selectedDate);
     
+    // テーマカラーを取得
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('洗米記録'),
+        elevation: 0,
       ),
-      body: Column(
-        children: [
-          // 日付選択部分
-          _buildDateSelector(),
-          
-          // 洗米記録表示部分
-          Expanded(
-            child: washingProcesses.isEmpty
-                ? Center(
-                    child: Text(
-                      'この日の洗米記録はありません',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.05),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // 日付選択部分（スタイル改善）
+            _buildDateSelector(),
+            
+            // 洗米記録表示部分
+            Expanded(
+              child: washingProcesses.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.water_drop,
+                            size: 80,
+                            color: Colors.blue.withOpacity(0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'この日の洗米予定はありません',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 麹米グループ
+                          if (kojiGroups.isNotEmpty) ...[
+                            _buildSectionHeader('麹米', Icons.grain, Colors.amber),
+                            ...kojiGroups.entries.map((entry) => 
+                              _buildRiceGroup(
+                                riceType: entry.key.split('|')[0],
+                                usage: entry.key.split('|')[1],
+                                processes: entry.value, 
+                                existingRecords: existingRecords,
+                                isKoji: true,
+                              )
+                            ).toList(),
+                            const SizedBox(height: 24),
+                          ],
+                          
+                          // 掛米グループ
+                          if (kakemaiGroups.isNotEmpty) ...[
+                            _buildSectionHeader('掛米・四段', Icons.rice_bowl, Colors.blue),
+                            ...kakemaiGroups.entries.map((entry) => 
+                              _buildRiceGroup(
+                                riceType: entry.key.split('|')[0],
+                                usage: entry.key.split('|')[1],
+                                processes: entry.value, 
+                                existingRecords: existingRecords,
+                                isKoji: false,
+                              )
+                            ).toList(),
+                          ],
+                        ],
                       ),
                     ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 麹米グループ
-                        if (kojiGroups.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.grain, color: Colors.amber.shade800),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '麹米',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.amber,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...kojiGroups.entries.map((entry) => 
-                            _buildRiceGroup(
-                              riceType: entry.key.split('|')[0],
-                              usage: entry.key.split('|')[1],
-                              processes: entry.value, 
-                              existingRecords: existingRecords,
-                              isKoji: true,
-                            )
-                          ).toList(),
-                          const SizedBox(height: 16),
-                        ],
-                        
-                        // 掛米グループ
-                        if (kakemaiGroups.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.rice_bowl, color: Colors.blue.shade800),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '掛米',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ...kakemaiGroups.entries.map((entry) => 
-                            _buildRiceGroup(
-                              riceType: entry.key.split('|')[0],
-                              usage: entry.key.split('|')[1],
-                              processes: entry.value, 
-                              existingRecords: existingRecords,
-                              isKoji: false,
-                            )
-                          ).toList(),
-                        ],
-                      ],
-                    ),
-                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // セクションヘッダー
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -253,8 +287,8 @@ String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availabl
         .where((lot) => lot.riceType == riceType)
         .toList();
     
-    // 既存値があれば設定
-    if (existingRecord != null) {
+    // 既存値があれば設定（UIの構築前に一度だけ実行）
+    if (existingRecord != null && _absorptionRateText.isEmpty) {
       if (existingRecord.riceLotIds.isNotEmpty) {
         _selectedRiceLotIds = existingRecord.riceLotIds;
         
@@ -266,353 +300,682 @@ String? _validateDropdownValue(List<String> selectedIds, List<RiceData> availabl
         }
       }
       
+      // 吸水率が既存ならコントローラにセット
       _absorptionRateController.text = existingRecord.absorptionRate.toString();
+      _absorptionRateText = existingRecord.absorptionRate.toString(); // ステート変数も更新
+      
       if (existingRecord.memo != null) {
         _memoController.text = existingRecord.memo!;
       }
       _riceEvaluation = existingRecord.riceEvaluation;
       _steamedEvaluation = existingRecord.steamedEvaluation;
-    } else {
-      // 既存値がなければクリア
-      _absorptionRateController.clear();
-      _memoController.clear();
-      _riceEvaluation = RiceEvaluation.unknown;
-      _steamedEvaluation = RiceEvaluation.unknown;
-      _currentMoisture = null;
     }
     
     // カードの色を設定
     Color cardColor = isKoji 
         ? Colors.amber.withOpacity(0.05) 
         : Colors.blue.withOpacity(0.05);
-    Color accentColor = isKoji ? Colors.amber : Colors.blue;
+    Color accentColor = isKoji ? Colors.amber.shade800 : Colors.blue.shade700;
     
-    return Card(
+    // モダンなカードデザイン
+    return Container(
       margin: const EdgeInsets.only(bottom: 16.0),
-      color: cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: accentColor.withOpacity(0.3), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ヘッダー
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$riceType (${processes.first.ricePct}%)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      '用途: $usage',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: accentColor.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    '合計: ${totalWeight.toStringAsFixed(1)}kg',
-                    style: TextStyle(
-                      color: accentColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const Divider(height: 24),
-            
-            // 工程リスト
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: processes.length,
-              itemBuilder: (context, index) {
-                final process = processes[index];
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    isKoji ? Icons.grain : Icons.rice_bowl,
-                    color: accentColor,
-                    size: 18,
-                  ),
-                  title: Text('${process.name} (順号${process.jungoId})'),
-                  subtitle: Text('${process.amount}kg'),
-                );
-              },
-            ),
-            
-            const Divider(height: 24),
-            
-            // 洗米記録部分
-            Row(
-              children: [
-                Icon(Icons.opacity, color: accentColor),
-                const SizedBox(width: 8),
-                Text(
-                  '洗米記録',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: accentColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // 白米ロット選択（ドロップダウン）
-            // 白米ロット選択（ドロップダウン）
-DropdownButtonFormField<String>(
-  decoration: InputDecoration(
-    labelText: '白米ロット',
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    filled: true,
-    fillColor: Colors.white,
-  ),
-  // 値の検証を追加
-  value: _validateDropdownValue(_selectedRiceLotIds, relatedLots),
-  items: relatedLots.isEmpty
-      ? [
-          const DropdownMenuItem(
-            value: null,
-            child: Text('ロットを追加してください'),
-          )
-        ]
-      : relatedLots.map((lot) => DropdownMenuItem(
-          value: lot.lotId,
-          child: Text(
-            '${lot.lotId} - ${lot.riceType} (${lot.polishingRatio}%, No.${lot.polishingNo ?? "なし"})',
-            style: const TextStyle(fontSize: 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        )).toList(),
-  onChanged: (value) {
-    if (value != null) {
-      setState(() {
-        _selectedRiceLotIds = [value];
-        
-        // 選択されたロットの水分値を取得
-        final lot = Provider.of<RiceDataProvider>(context, listen: false)
-            .getRiceLotById(value);
-        if (lot != null) {
-          _currentMoisture = lot.moisture;
-        }
-      });
-    }
-  },
-),
-            
-            // 白米水分表示（選択されたロットから）
-            if (_currentMoisture != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.water_drop, size: 16, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Text(
-                      '白米水分: ${_currentMoisture!.toStringAsFixed(1)}%',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            
-            const SizedBox(height: 12),
-            
-            // 吸水率入力
-            TextField(
-              controller: _absorptionRateController,
-              decoration: InputDecoration(
-                labelText: '吸水率 (%)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // 評価
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<RiceEvaluation>(
-                    decoration: InputDecoration(
-                      labelText: '白米評価',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    value: existingRecord?.riceEvaluation ?? _riceEvaluation,
-                    items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
-                      value: eval,
-                      child: Text(eval.toDisplayString()),
-                    )).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _riceEvaluation = value;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<RiceEvaluation>(
-                    decoration: InputDecoration(
-                      labelText: '蒸米評価',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      filled: true,
-                      fillColor: Colors.white,
-                    ),
-                    value: existingRecord?.steamedEvaluation ?? _steamedEvaluation,
-                    items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
-                      value: eval,
-                      child: Text(eval.toDisplayString()),
-                    )).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _steamedEvaluation = value;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // メモ入力
-            TextField(
-              controller: _memoController,
-              decoration: InputDecoration(
-                labelText: 'メモ',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                filled: true,
-                fillColor: Colors.white,
-              ),
-              maxLines: 3,
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // 保存ボタン
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.save),
-                label: const Text('保存'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accentColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () => _saveRecord(riceType, usage, processes),
-              ),
-            ),
-          ],
+        ],
+        border: Border.all(
+          color: accentColor.withOpacity(0.2),
+          width: 1,
         ),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ヘッダー (グラデーション背景)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accentColor.withOpacity(0.8),
+                  accentColor.withOpacity(0.6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$riceType (${processes.first.ricePct}%)',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '用途: $usage',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '${totalWeight.toStringAsFixed(1)} kg',
+                    style: TextStyle(
+                      color: accentColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // 工程リスト
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 工程ヘッダー
+                Row(
+                  children: [
+                    Icon(isKoji ? Icons.grain : Icons.rice_bowl, size: 16, color: accentColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      '工程リスト',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                
+                // 工程リスト
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: processes.length,
+                  itemBuilder: (context, index) {
+                    final process = processes[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: accentColor.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isKoji ? Icons.grain : Icons.rice_bowl,
+                            size: 16,
+                            color: accentColor,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${process.name} (順号${process.jungoId})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text('${process.amount} kg', style: const TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // 洗米記録部分
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 洗米記録ヘッダー
+                      Row(
+                        children: [
+                          Icon(Icons.opacity, color: accentColor),
+                          const SizedBox(width: 8),
+                          Text(
+                            '洗米記録',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: accentColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // 白米ロット選択（ドロップダウン）
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            labelText: '白米ロット',
+                            labelStyle: TextStyle(color: accentColor),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: accentColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                          value: _validateDropdownValue(_selectedRiceLotIds, relatedLots),
+                          items: relatedLots.isEmpty
+                              ? [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('ロットを追加してください'),
+                                  )
+                                ]
+                              : relatedLots.map((lot) => DropdownMenuItem(
+                                  value: lot.lotId,
+                                  child: Text(
+                                    '${lot.lotId} - ${lot.riceType} (${lot.polishingRatio}%, No.${lot.polishingNo ?? "なし"})',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                )).toList(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedRiceLotIds = [value];
+                                
+                                // 選択されたロットの水分値を取得
+                                final lot = Provider.of<RiceDataProvider>(context, listen: false)
+                                    .getRiceLotById(value);
+                                if (lot != null) {
+                                  _currentMoisture = lot.moisture;
+                                }
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      
+                      // 白米水分表示（選択されたロットから）
+                      if (_currentMoisture != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.blue.shade100,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.water_drop, size: 18, color: Colors.blue),
+                              const SizedBox(width: 12),
+                              Text(
+                                '白米水分: ${_currentMoisture!.toStringAsFixed(1)}%',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 16),
+                      
+                      // 吸水率入力
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _absorptionRateController,
+                          decoration: InputDecoration(
+                            labelText: '吸水率 (%)',
+                            labelStyle: TextStyle(color: accentColor),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: accentColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            filled: true,
+                            fillColor: Colors.white,
+                            suffixIcon: Icon(Icons.percent, color: accentColor.withOpacity(0.5)),
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // 評価セクション
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '白米評価',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 5,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: DropdownButtonFormField<RiceEvaluation>(
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    value: existingRecord?.riceEvaluation ?? _riceEvaluation,
+                                    items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
+                                      value: eval,
+                                      child: Text(
+                                        eval.toDisplayString(),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: _getEvaluationColor(eval),
+                                        ),
+                                      ),
+                                    )).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() {
+                                          _riceEvaluation = value;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '蒸米評価',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: accentColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 5,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: DropdownButtonFormField<RiceEvaluation>(
+                                    decoration: InputDecoration(
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    value: existingRecord?.steamedEvaluation ?? _steamedEvaluation,
+                                    items: RiceEvaluation.values.map((eval) => DropdownMenuItem(
+                                      value: eval,
+                                      child: Text(
+                                        eval.toDisplayString(),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: _getEvaluationColor(eval),
+                                        ),
+                                      ),
+                                    )).toList(),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() {
+                                          _steamedEvaluation = value;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // メモ入力
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _memoController,
+                          decoration: InputDecoration(
+                            labelText: 'メモ',
+                            labelStyle: TextStyle(color: accentColor),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: accentColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                          maxLines: 3,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // 保存ボタン
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: _isProcessingSave 
+                              ? Container(
+                                  width: 20,
+                                  height: 20,
+                                  padding: const EdgeInsets.all(4),
+                                  child: const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.save),
+                          label: Text(_isProcessingSave ? '保存中...' : '保存'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 4,
+                          ),
+                          onPressed: _isProcessingSave 
+                              ? null 
+                              : () => _saveRecord(riceType, usage, processes),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+  }
+  
+  // 評価の色を取得
+  Color _getEvaluationColor(RiceEvaluation eval) {
+    switch (eval) {
+      case RiceEvaluation.excellent:
+        return Colors.blue;
+      case RiceEvaluation.good:
+        return Colors.green;
+      case RiceEvaluation.fair:
+        return Colors.orange;
+      case RiceEvaluation.poor:
+        return Colors.red;
+      case RiceEvaluation.unknown:
+        return Colors.grey;
+    }
   }
   
   // 日付選択部分
   Widget _buildDateSelector() {
     final dateFormat = DateFormat('yyyy年MM月dd日 (E)', 'ja');
     
-    return Card(
+    return Container(
       margin: const EdgeInsets.all(16.0),
-      shape: RoundedRectangleBorder(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios),
-              onPressed: () {
-                setState(() {
-                  _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                });
-              },
-            ),
-            GestureDetector(
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  dateFormat.format(_selectedDate),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+            // 前日ボタン
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                    _resetFormState(); // フォームの状態をリセット
+                  });
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey.shade100,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_left,
+                    color: Colors.black87,
                   ),
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_forward_ios),
-              onPressed: () {
-                setState(() {
-                  _selectedDate = _selectedDate.add(const Duration(days: 1));
-                });
-              },
+            
+            // 日付表示
+            GestureDetector(
+              onTap: () => _selectDate(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      dateFormat.format(_selectedDate),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // 翌日ボタン
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedDate = _selectedDate.add(const Duration(days: 1));
+                    _resetFormState(); // フォームの状態をリセット
+                  });
+                },
+                borderRadius: BorderRadius.circular(30),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.grey.shade100,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -620,26 +983,53 @@ DropdownButtonFormField<String>(
     );
   }
   
+  // フォームの状態をリセット
+  void _resetFormState() {
+    _absorptionRateController.clear();
+    _absorptionRateText = '';
+    _memoController.clear();
+    _riceEvaluation = RiceEvaluation.unknown;
+    _steamedEvaluation = RiceEvaluation.unknown;
+    _currentMoisture = null;
+    _selectedRiceLotIds = [];
+  }
+  
   // 記録保存処理
-  void _saveRecord(String riceType, String usage, List<BrewingProcess> processes) {
+  Future<void> _saveRecord(String riceType, String usage, List<BrewingProcess> processes) async {
+    // 二重送信防止
+    if (_isProcessingSave) {
+      return;
+    }
+    
+    // 保存処理中フラグをON
+    setState(() {
+      _isProcessingSave = true;
+    });
+    
     // ロットIDのチェック
     if (_selectedRiceLotIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('白米ロットを選択してください')),
       );
+      setState(() {
+        _isProcessingSave = false;
+      });
       return;
     }
     
-    // 吸水率の解析
+    // 吸水率の解析 - _absorptionRateTextを使用
     double? absorptionRate;
     try {
-      if (_absorptionRateController.text.isNotEmpty) {
-        absorptionRate = double.parse(_absorptionRateController.text);
+      if (_absorptionRateText.isNotEmpty) {
+        absorptionRate = double.parse(_absorptionRateText);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('吸水率の値が不正です')),
       );
+      setState(() {
+        _isProcessingSave = false;
+      });
       return;
     }
     
@@ -648,6 +1038,9 @@ DropdownButtonFormField<String>(
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('吸水率を入力してください')),
       );
+      setState(() {
+        _isProcessingSave = false;
+      });
       return;
     }
     
@@ -666,44 +1059,76 @@ DropdownButtonFormField<String>(
     final existingRecords = riceProvider.getWashingRecordsByDate(_selectedDate);
     bool isUpdate = false;
     
-    for (var existingRecord in existingRecords) {
-      // より厳密なマッチング条件
-      if (existingRecord.riceLotIds.isNotEmpty) {
-        final riceLot = riceProvider.getRiceLotById(existingRecord.riceLotIds.first);
-        if (riceLot != null && riceLot.riceType == riceType) {
-          // 用途やその他の条件も確認できる
-          riceProvider.updateWashingRecord(record);
-          isUpdate = true;
-          break;
+    try {
+      for (var existingRecord in existingRecords) {
+        // より厳密なマッチング条件
+        if (existingRecord.riceLotIds.isNotEmpty) {
+          final riceLot = riceProvider.getRiceLotById(existingRecord.riceLotIds.first);
+          if (riceLot != null && riceLot.riceType == riceType) {
+            // 用途やその他の条件も確認できる
+            await riceProvider.updateWashingRecord(record);
+            isUpdate = true;
+            break;
+          }
         }
       }
-    }
-    
-    // 新規記録の場合
-    if (!isUpdate) {
-      riceProvider.addWashingRecord(record);
-    }
-    
-    // 工程の情報も更新（吸水率の反映）
-    for (var process in processes) {
-      Provider.of<BrewingDataProvider>(context, listen: false)
-          .updateProcessData(
-            process.jungoId, 
-            process.name, 
-            waterAbsorption: absorptionRate,
-          );
-    }
-    
-    // フォームをクリア
-    _absorptionRateController.clear();
-    _memoController.clear();
-    _riceEvaluation = RiceEvaluation.unknown;
-    _steamedEvaluation = RiceEvaluation.unknown;
-    _currentMoisture = null;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('洗米記録を保存しました')),
+      
+      // 新規記録の場合
+      if (!isUpdate) {
+        await riceProvider.addWashingRecord(record);
+      }
+      
+      // 工程の情報も更新（吸水率の反映）
+      for (var process in processes) {
+      await Provider.of<BrewingDataProvider>(context, listen: false)
+      .updateProcessData(
+      process.jungoId, 
+      process.name, 
+      waterAbsorption: absorptionRate,
     );
+      }
+      
+      // 成功メッセージ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              const Text('洗米記録を保存しました'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } catch (e) {
+      // エラーメッセージ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 12),
+              Text('保存中にエラーが発生しました: $e'),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } finally {
+      // 保存処理中フラグをOFF
+      setState(() {
+        _isProcessingSave = false;
+      });
+    }
   }
   
   // 日付選択ダイアログ
@@ -714,22 +1139,45 @@ DropdownButtonFormField<String>(
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
       locale: const Locale('ja'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+        _resetFormState(); // フォームの状態をリセット
       });
     }
   }
   
-  // 指定日の洗米工程を取得
+  // 指定日の洗米工程を取得 (四段も含める)
   List<BrewingProcess> _getWashingProcessesForDate(List<JungoData> jungoList, DateTime date) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     
     return jungoList.expand((jungo) => jungo.processes).where((process) => 
+      // 洗米、麹、醪の工程を含める
       (process.type == ProcessType.washing || 
        process.type == ProcessType.koji || 
-       process.type == ProcessType.moromi) && 
+       process.type == ProcessType.moromi ||
+       // 四段の工程も含める (ProcessType.other)
+       (process.type == ProcessType.other && process.name.toLowerCase().contains('四段'))) && 
+      // 選択された日付の洗米工程のみ
       DateFormat('yyyy-MM-dd').format(process.washingDate) == dateStr
     ).toList();
   }

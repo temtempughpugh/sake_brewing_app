@@ -181,6 +181,7 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 精米歩合はそのまま表示します（モデルに必要なため）
                         Text('精米歩合: ${lot.polishingRatio}%'),
                         const SizedBox(height: 4),
                         Text('白米水分: ${lot.moisture.toStringAsFixed(1)}%'),
@@ -226,7 +227,7 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
     
     String riceType = lot.riceType;
     String origin = lot.origin;
-    int polishingRatio = lot.polishingRatio;
+    int polishingRatio = lot.polishingRatio; // 削除せず、表示しないだけ
     DateTime? arrivalDate = lot.arrivalDate;
     String? polishingNo = lot.polishingNo;
     double moisture = lot.moisture;
@@ -241,22 +242,41 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 品種選
-              const SizedBox(height: 16),
-              
-              // 精米歩合
-              TextFormField(
+              // 品種選択
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: '精米歩合 (%)',
+                  labelText: '品種',
                   border: OutlineInputBorder(),
                 ),
-                initialValue: polishingRatio.toString(),
-                keyboardType: TextInputType.number,
+                value: provider.riceTypes.contains(riceType) ? riceType : provider.riceTypes.first,
+                items: provider.riceTypes
+                    .map((type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type),
+                        ))
+                    .toList(),
                 onChanged: (value) {
-                  polishingRatio = int.tryParse(value) ?? 70;
+                  if (value != null) {
+                    riceType = value;
+                  }
                 },
               ),
               const SizedBox(height: 16),
+              
+              // 産地
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: '産地',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: origin,
+                onChanged: (value) {
+                  origin = value;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 精米歩合フィールドを削除
               
               // 白米水分
               TextFormField(
@@ -353,7 +373,7 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
                 lotId: lot.lotId,
                 riceType: riceType,
                 origin: origin,
-                polishingRatio: polishingRatio,
+                polishingRatio: polishingRatio, // そのまま使用
                 arrivalDate: arrivalDate,
                 polishingNo: polishingNo,
                 moisture: moisture,
@@ -379,20 +399,18 @@ class _RiceLotScreenState extends State<RiceLotScreen> {
   }
 
   // 白米ロット追加ダイアログ
-// 白米ロット追加ダイアログ
-Future<void> _showAddLotDialog(BuildContext context) async {
-  final provider = Provider.of<RiceDataProvider>(context, listen: false);
-  final newLotId = provider.generateNextLotId();
-  
-  // 修正：静的アクセスからインスタンスアクセスに変更
-  String riceType = provider.riceTypes.isNotEmpty ? provider.riceTypes.first : '未指定';
-  // 修正：origins は削除されたので、デフォルト値を直接指定
-  String origin = '未指定'; // または任意のデフォルト値
-  int polishingRatio = 70;
-  DateTime? arrivalDate;
-  String? polishingNo;
-  double moisture = 14.5;
-  bool isNew = true;
+  Future<void> _showAddLotDialog(BuildContext context) async {
+    final provider = Provider.of<RiceDataProvider>(context, listen: false);
+    final newLotId = provider.generateNextLotId();
+    
+    // デフォルト値の設定
+    String riceType = provider.riceTypes.isNotEmpty ? provider.riceTypes.first : '未指定';
+    String origin = '未指定';
+    int polishingRatio = 70; // 削除せず、表示しないだけ
+    DateTime? arrivalDate;
+    String? polishingNo;
+    double moisture = 14.5;
+    bool isNew = true;
     
     await showDialog(
       context: context,
@@ -407,38 +425,40 @@ Future<void> _showAddLotDialog(BuildContext context) async {
               const SizedBox(height: 16),
               
               // 品種選択
-DropdownButtonFormField<String>(
-  decoration: const InputDecoration(
-    labelText: '品種',
-    border: OutlineInputBorder(),
-  ),
-  value: provider.riceTypes.contains(riceType) ? riceType : provider.riceTypes.first,
-  items: provider.riceTypes
-      .map((type) => DropdownMenuItem(
-            value: type,
-            child: Text(type),
-          ))
-      .toList(),
-  onChanged: (value) {
-    if (value != null) {
-      riceType = value;
-    }
-  },
-),
-              
-              // 精米歩合
-              TextFormField(
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: '精米歩合 (%)',
+                  labelText: '品種',
                   border: OutlineInputBorder(),
                 ),
-                initialValue: polishingRatio.toString(),
-                keyboardType: TextInputType.number,
+                value: provider.riceTypes.contains(riceType) ? riceType : provider.riceTypes.first,
+                items: provider.riceTypes
+                    .map((type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type),
+                        ))
+                    .toList(),
                 onChanged: (value) {
-                  polishingRatio = int.tryParse(value) ?? 70;
+                  if (value != null) {
+                    riceType = value;
+                  }
                 },
               ),
               const SizedBox(height: 16),
+              
+              // 産地
+              TextFormField(
+                decoration: const InputDecoration(
+                  labelText: '産地',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: origin,
+                onChanged: (value) {
+                  origin = value;
+                },
+              ),
+              const SizedBox(height: 16),
+              
+              // 精米歩合フィールドを削除
               
               // 白米水分
               TextFormField(
@@ -534,7 +554,7 @@ DropdownButtonFormField<String>(
                 lotId: newLotId,
                 riceType: riceType,
                 origin: origin,
-                polishingRatio: polishingRatio,
+                polishingRatio: polishingRatio, // そのまま使用
                 arrivalDate: arrivalDate,
                 polishingNo: polishingNo,
                 moisture: moisture,
@@ -598,6 +618,7 @@ DropdownButtonFormField<String>(
                       const Divider(),
                       _buildInfoItem('品種', lot.riceType),
                       _buildInfoItem('産地', lot.origin),
+                      // 精米歩合は表示したまま
                       _buildInfoItem('精米歩合', '${lot.polishingRatio}%'),
                       _buildInfoItem('白米水分', '${lot.moisture.toStringAsFixed(1)}%'),
                       if (lot.arrivalDate != null) 

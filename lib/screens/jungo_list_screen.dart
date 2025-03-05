@@ -89,7 +89,8 @@ final filteredList = jungoList.where((jungo) {
     }
     return false;
   } else if (_filterStatus == 'brewing') {
-    // 仕込み中状態：添掛仕込み日から留掛仕込み日まで
+      // 仕込み中状態：添掛仕込み日から留掛仕込み日まで
+    // 注意：四段は仕込み中に含めない
     DateTime? soekakeWorkDate;
     DateTime? tomekakeWorkDate;
     

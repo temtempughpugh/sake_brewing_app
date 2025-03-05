@@ -77,7 +77,8 @@ class BrewingProcess {
   
   // 作業日を取得
   DateTime getWorkDate() {
-    if (type == ProcessType.moromi) {
+    if (type == ProcessType.moromi || type == ProcessType.other) {
+      // 醪または四段の場合は洗米の翌日を仕込み日とする
       return washingDate.add(const Duration(days: 1));
     } else if (type == ProcessType.koji) {
       // 麹の場合は使用目的に応じた日付
