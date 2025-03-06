@@ -6,8 +6,10 @@ import 'package:sake_brewing_app/models/brewing_data.dart';
 import 'package:sake_brewing_app/models/rice_data_provider.dart'; // 追加
 import 'package:sake_brewing_app/screens/home_screen.dart';
 import 'package:sake_brewing_app/services/notification_service.dart';
+import 'package:sake_brewing_app/services/koji_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+// main 関数を修正
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -15,15 +17,20 @@ void main() async {
   final brewingProvider = BrewingDataProvider();
   await brewingProvider.loadFromLocalStorage();
   
-  // 白米データプロバイダーを初期化（追加）
+  // 白米データプロバイダーを初期化
   final riceDataProvider = RiceDataProvider();
+  
+  // 麹サービスを初期化
+  final kojiService = KojiService(brewingProvider);
   
   await NotificationService().init();
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => brewingProvider),
-        ChangeNotifierProvider(create: (_) => riceDataProvider), // 追加
+        ChangeNotifierProvider(create: (_) => riceDataProvider),
+        // KojiService プロバイダーを追加
+        ChangeNotifierProvider(create: (_) => kojiService),
       ],
       child: const MyApp(),
     ),

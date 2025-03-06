@@ -6,6 +6,7 @@ import 'package:sake_brewing_app/screens/koji_screen.dart';
 // 新しい画面のインポート（後で実装）
 import 'package:sake_brewing_app/screens/rice_lot_screen.dart';
 import 'package:sake_brewing_app/screens/washing_record_screen.dart';
+import 'package:sake_brewing_app/screens/dekoji_distribution_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -71,6 +72,18 @@ class AppDrawer extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const KojiScreen()),
+              );
+            },
+          ),
+          // 出麹配分メニューアイテム追加
+          _buildDrawerItem(
+            context,
+            title: '出麹配分',
+            icon: Icons.gesture,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DekojiDistributionScreen()),
               );
             },
           ),

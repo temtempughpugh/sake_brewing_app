@@ -1079,15 +1079,14 @@ class _WashingRecordScreenState extends State<WashingRecordScreen> {
       }
       
       // 工程の情報も更新（吸水率の反映）
+      final brewingProvider = Provider.of<BrewingDataProvider>(context, listen: false);
       for (var process in processes) {
-      await Provider.of<BrewingDataProvider>(context, listen: false)
-      .updateProcessData(
-      process.jungoId, 
-      process.name, 
-      waterAbsorption: absorptionRate,
-    );
+        brewingProvider.updateProcessData(
+          process.jungoId, 
+          process.name, 
+          waterAbsorption: absorptionRate,
+        );
       }
-      
       // 成功メッセージ
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

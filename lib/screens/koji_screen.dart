@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
 import 'package:sake_brewing_app/screens/jungo_detail_screen.dart';
+import 'package:sake_brewing_app/screens/dekoji_distribution_screen.dart';
 
 class KojiScreen extends StatefulWidget {
   const KojiScreen({super.key});
@@ -38,6 +39,24 @@ class _KojiScreenState extends State<KojiScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('麹工程管理'),
+        actions: [
+          // 出麹配分画面へのボタンを追加
+          if (dekojiProcesses.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.grain),
+              tooltip: '出麹配分計算',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DekojiDistributionScreen(
+                      selectedDate: _selectedDate,
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -83,7 +102,68 @@ class _KojiScreenState extends State<KojiScreen> {
               ),
             ),
           ),
-          
+          if (dekojiProcesses.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DekojiDistributionScreen(
+                        selectedDate: _selectedDate,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(
+                      color: Colors.deepOrange.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.grain,
+                        color: Colors.deepOrange,
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '出麹配分計算',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.deepOrange,
+                            ),
+                          ),
+                          Text(
+                            '本日の出麹 ${dekojiProcesses.length}件（${dekojiTotalWeight.toStringAsFixed(1)} kg）',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Colors.deepOrange,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           // 麹工程リスト
           Expanded(
             child: hasNoKojiProcesses

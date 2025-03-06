@@ -35,6 +35,8 @@ class BrewingProcess {
   String? memo;                 // メモ
   double? temperature;          // 温度
   double? waterAbsorption;      // 吸水率（洗米のみ）
+  double? actualKojiRate;     // 実際の出麹歩合（%）
+  double? finalKojiWeight;    // 最終的な出麹重量（kg）
 
   BrewingProcess({
     required this.jungoId,
@@ -49,6 +51,8 @@ class BrewingProcess {
     this.memo,
     this.temperature,
     this.waterAbsorption,
+    this.actualKojiRate,
+    this.finalKojiWeight,
   });
   
   // 引込み日を取得（洗米日の翌日）
@@ -673,4 +677,35 @@ Future<void> loadFromCsv(String csvData) async {
     _jungoList = [jungo1, jungo2, jungo3, jungo4];
     notifyListeners();
   }
+   // 出麹歩合と重量を更新するメソッド
+  void updateProcessKojiData(
+    int jungoId,
+    String processName, {
+    double? actualKojiRate,
+    double? finalKojiWeight,
+  }) {
+    final jungoIndex = _jungoList.indexWhere((jungo) => jungo.jungoId == jungoId);
+    if (jungoIndex != -1) {
+      final processIndex = _jungoList[jungoIndex].processes.indexWhere(
+        (process) => process.name == processName
+      );
+      if (processIndex != -1) {
+        // 出麹歩合の更新
+        if (actualKojiRate != null) {
+          _jungoList[jungoIndex].processes[processIndex].actualKojiRate = actualKojiRate;
+        }
+        
+        // 出麹重量の更新
+        if (finalKojiWeight != null) {
+          _jungoList[jungoIndex].processes[processIndex].finalKojiWeight = finalKojiWeight;
+        }
+        
+        // 状態を完了に更新
+        _jungoList[jungoIndex].processes[processIndex].status = ProcessStatus.completed;
+        
+        notifyListeners();
+      }
+    }
+  }
 }
+ 
