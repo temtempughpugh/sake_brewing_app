@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
@@ -18,7 +19,7 @@ class DekojiDistributionScreen extends StatefulWidget {
 
 class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
   late DateTime _selectedDate;
-  final TextEditingController _estimatedKojiRateController = TextEditingController(text: '85.0');
+  final TextEditingController _estimatedKojiRateController = TextEditingController(text: '122.0');
   final TextEditingController _finalWeightController = TextEditingController();
   
   List<BrewingProcess> _dekojiProcesses = [];
@@ -46,6 +47,9 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     setState(() {});
   }
   
+  // 棚配分の結果
+  Map<String, dynamic>? _shelfDistribution;
+  
   void _calculateDistribution() {
     if (_dekojiProcesses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -63,11 +67,27 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     }
     
     final kojiService = Provider.of<KojiService>(context, listen: false);
+    
+    // 1. 基本的な配分計算
     final distribution = kojiService.calculateDistribution(_dekojiProcesses, kojiRate);
+    
+    // 2. 詳細な棚配分計算
+    final shelfDistribution = kojiService.calculateShelfDistribution(_dekojiProcesses, kojiRate);
     
     setState(() {
       _distribution = distribution;
+      _shelfDistribution = shelfDistribution;
       _hasCalculated = true;
+      
+      // エラーがある場合はスナックバーで表示
+      if (shelfDistribution.containsKey('error')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(shelfDistribution['error']),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     });
   }
   
@@ -79,10 +99,10 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
       return;
     }
     
-    final finalWeight = double.tryParse(_finalWeightController.text);
-    if (finalWeight == null || finalWeight <= 0) {
+    final lastSheetWeight = double.tryParse(_finalWeightController.text);
+    if (lastSheetWeight == null || lastSheetWeight <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('有効な最終重量を入力してください')),
+        const SnackBar(content: Text('有効な最後の1枚の重量を入力してください')),
       );
       return;
     }
@@ -91,10 +111,26 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     final totalOriginalWeight = _dekojiProcesses.fold<double>(
       0, (sum, process) => sum + process.amount);
     
-    final actualRate = (finalWeight / totalOriginalWeight) * 100;
+    // 真の出麹歩合計算ロジック
+    // 1. 最後の1枚を除いた乾燥重量を計算
+    final lastDrySheetWeight = 10.0; // 最後の1枚の乾燥重量 (kg)
+    final remainingDryWeight = totalOriginalWeight - lastDrySheetWeight;
+    
+    // 2. 最後の1枚を除いた部分に予想歩合を適用
+    final estimatedRate = double.parse(_estimatedKojiRateController.text);
+    final remainingKojiWeight = remainingDryWeight * estimatedRate / 100;
+    
+    // 3. 最後の1枚の実測値を加えて総出麹重量を計算
+    final totalKojiWeight = remainingKojiWeight + lastSheetWeight;
+    
+    // 4. 真の出麹歩合を計算
+    final actualRate = (totalKojiWeight / totalOriginalWeight) * 100;
+    
+    // 最終重量を計算（棚配分のためにtotalKojiWeightを使用）
+    final finalTotalWeight = totalKojiWeight;
     
     // 各プロセスの実際の出麹歩合を更新
-    kojiService.updateKojiRates(_dekojiProcesses, finalWeight);
+    kojiService.updateKojiRates(_dekojiProcesses, finalTotalWeight);
     
     setState(() {
       _actualKojiRate = actualRate;
@@ -102,10 +138,11 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('出麹歩合を記録しました: ${actualRate.toStringAsFixed(1)}%'),
+        content: Text('真の出麹歩合を記録しました: ${actualRate.toStringAsFixed(1)}%'),
         backgroundColor: Colors.green,
       ),
     );
+  }
   }
   
   @override
@@ -339,14 +376,51 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                         controller: _estimatedKojiRateController,
                         decoration: const InputDecoration(
                           labelText: '予想出麹歩合 (%)',
-                          hintText: '85.0',
                           border: OutlineInputBorder(),
                           suffixText: '%',
+                          helperText: '通常は100%以上になります',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        // 上下の矢印で1ずつ変更できるようにする
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,1}')),
+                        ],
                       ),
                       
-                      const SizedBox(height: 16),
+                      // 上下の矢印ボタン
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () {
+                              final currentValue = double.tryParse(_estimatedKojiRateController.text) ?? 122.0;
+                              setState(() {
+                                _estimatedKojiRateController.text = (currentValue - 1.0).toStringAsFixed(1);
+                              });
+                            },
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 36),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            child: const Icon(Icons.remove),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton(
+                            onPressed: () {
+                              final currentValue = double.tryParse(_estimatedKojiRateController.text) ?? 122.0;
+                              setState(() {
+                                _estimatedKojiRateController.text = (currentValue + 1.0).toStringAsFixed(1);
+                              });
+                            },
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(48, 36),
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                            child: const Icon(Icons.add),
+                          ),
+                        ],
+                      ),
                       
                       // 計算ボタン
                       SizedBox(
@@ -429,6 +503,7 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                           child: Column(
                             children: [
                               // ヘッダー行
+                              // ヘッダー行
                               Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                                 decoration: BoxDecoration(
@@ -470,6 +545,14 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                                         textAlign: TextAlign.right,
                                       ),
                                     ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        '1枚あたり',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -485,6 +568,10 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                                   final usage = entry.key;
                                   final weight = entry.value;
                                   final originalWeight = usageWeights[usage] ?? 0;
+                                  
+                                  // 枚数と1枚あたりの重量を計算
+                                  final sheets = (originalWeight / 10).ceil();
+                                  final weightPerSheet = weight / sheets;
                                   
                                   return Container(
                                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -540,6 +627,17 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                                             textAlign: TextAlign.right,
                                           ),
                                         ),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            '${weightPerSheet.toStringAsFixed(1)} kg',
+                                            style: const TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              color: Color.fromARGB(255, 24, 115, 205),
+                                            ),
+                                            textAlign: TextAlign.right,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   );
@@ -548,6 +646,187 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                             ],
                           ),
                         ),
+                        
+                        // 棚配分の表示（エラーがなく計算が完了した場合）
+                        if (_shelfDistribution != null && !_shelfDistribution!.containsKey('error')) ...[
+                          const SizedBox(height: 24),
+                          
+                          const Text(
+                            '棚配分',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 8),
+                          
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '棚配置図',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  
+                                  const SizedBox(height: 16),
+                                  
+                                  // 棚の視覚表示
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: Colors.grey.shade300),
+                                    ),
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        for (int colIndex = 0; colIndex < 4; colIndex++)
+                                          Expanded(
+                                            child: Column(
+                                              children: [
+                                                // 列ヘッダー
+                                                Container(
+                                                  padding: const EdgeInsets.all(8),
+                                                  margin: const EdgeInsets.only(bottom: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.blue.shade100,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    String.fromCharCode(65 + colIndex), // A, B, C, D
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ),
+                                                
+                                                // 列の棚アイテム
+                                                if (_shelfDistribution!['shelfView'] != null &&
+                                                    _shelfDistribution!['shelfView'][colIndex] != null)
+                                                  for (var item in _shelfDistribution!['shelfView'][colIndex])
+                                                    Container(
+                                                      width: double.infinity,
+                                                      margin: const EdgeInsets.only(bottom: 8),
+                                                      padding: const EdgeInsets.symmetric(
+                                                        vertical: 10,
+                                                        horizontal: 4,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: _getUsageColor(item['usage']).withOpacity(0.3),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(
+                                                          color: _getUsageColor(item['usage']),
+                                                        ),
+                                                      ),
+                                                      child: Column(
+                                                        children: [
+                                                          Text(
+                                                            item['usage'],
+                                                            style: const TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 12,
+                                                            ),
+                                                            textAlign: TextAlign.center,
+                                                          ),
+                                                          const SizedBox(height: 4),
+                                                          Text(
+                                                            '${item['count']}枚',
+                                                            style: const TextStyle(fontSize: 12),
+                                                            textAlign: TextAlign.center,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  const SizedBox(height: 16),
+                                  
+                                  // 棚の詳細説明
+                                  if (_shelfDistribution!['lots'] != null) ...[
+                                    const Text(
+                                      '詳細情報',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    
+                                    const SizedBox(height: 8),
+                                    
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey.shade300),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        physics: const NeverScrollableScrollPhysics(),
+                                        itemCount: _shelfDistribution!['lots'].length,
+                                        separatorBuilder: (_, __) => const Divider(height: 1),
+                                        itemBuilder: (context, index) {
+                                          final lot = _shelfDistribution!['lots'][index];
+                                          return Padding(
+                                            padding: const EdgeInsets.all(12),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      lot['type'],
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        color: _getUsageColor(lot['type']),
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '元重量: ${lot['originalWeight'].toStringAsFixed(1)} kg',
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text('枚数: ${lot['sheets']}枚'),
+                                                    Text('列数: ${lot['columns']}列'),
+                                                  ],
+                                                ),
+                                                if (lot['distribution'] != null) ...[
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    '配置: ${(lot['distribution'] as List).map((i) => '$i枚').join(', ')}',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -613,6 +892,7 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                         ),
                         
                         // 記録結果表示
+                       // 記録結果表示
                         if (_actualKojiRate != null) ...[
                           const SizedBox(height: 24),
                           
@@ -636,15 +916,29 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                                     color: Colors.green.shade800,
                                   ),
                                 ),
-                                Text(
-                                  '(${_finalWeightController.text} kg ÷ ${totalOriginalWeight.toStringAsFixed(1)} kg)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.green.shade800,
+                                // 計算方法の説明
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Text(
+                                    '乾燥重量: ${totalOriginalWeight.toStringAsFixed(1)} kg',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Text(
+                                    '最後の1枚: ${_finalWeightController.text} kg',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
                                   ),
                                 ),
                                 
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 8),
                                 
                                 // 予想との差異
                                 Row(
