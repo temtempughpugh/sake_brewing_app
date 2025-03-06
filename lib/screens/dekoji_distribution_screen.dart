@@ -27,6 +27,9 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
   double? _actualKojiRate;
   bool _hasCalculated = false;
   
+  // 棚配分の結果
+  Map<String, dynamic>? _shelfDistribution;
+  
   @override
   void initState() {
     super.initState();
@@ -47,9 +50,6 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     setState(() {});
   }
   
-  // 棚配分の結果
-  Map<String, dynamic>? _shelfDistribution;
-  
   void _calculateDistribution() {
     if (_dekojiProcesses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,9 +59,9 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     }
     
     final kojiRate = double.tryParse(_estimatedKojiRateController.text);
-    if (kojiRate == null || kojiRate <= 0 || kojiRate > 100) {
+    if (kojiRate == null || kojiRate <= 0 || kojiRate > 200) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('有効な出麹歩合を入力してください（0〜100%）')),
+        const SnackBar(content: Text('有効な出麹歩合を入力してください（0〜200%）')),
       );
       return;
     }
@@ -143,7 +143,6 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
       ),
     );
   }
-  }
   
   @override
   Widget build(BuildContext context) {
@@ -160,30 +159,7 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('出麹配分'),
-        actions: [
-          // 日付選択ボタン
-          IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-                locale: const Locale('ja'),
-              );
-              if (date != null) {
-                setState(() {
-                  _selectedDate = date;
-                  _hasCalculated = false;
-                  _distribution.clear();
-                  _actualKojiRate = null;
-                });
-                _loadDekojiProcesses();
-              }
-            },
-          ),
-        ],
+        
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -191,37 +167,139 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 日付表示
-            Card(
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.today, color: Colors.amber),
-                    const SizedBox(width: 12),
-                    Text(
-                      '${DateFormat('yyyy年MM月dd日 (E)', 'ja').format(_selectedDate)}の出麹',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+            // 1. 日付選択部分をこのコードに置き換え
+Card(
+  elevation: 2,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16.0),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // 前日ボタン
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () {
+            setState(() {
+              _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+              _hasCalculated = false;
+              _distribution.clear();
+              _actualKojiRate = null;
+            });
+            _loadDekojiProcesses();
+          },
+        ),
+        
+        // 日付表示 - タップで日付選択ダイアログを表示
+        GestureDetector(
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2030),
+              locale: const Locale('ja'),
+            );
+            if (date != null) {
+              setState(() {
+                _selectedDate = date;
+                _hasCalculated = false;
+                _distribution.clear();
+                _actualKojiRate = null;
+              });
+              _loadDekojiProcesses();
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.deepOrange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.deepOrange.withOpacity(0.3),
+                width: 1,
               ),
             ),
+            child: Row(
+              children: [
+                const Icon(Icons.today, color: Colors.deepOrange),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('yyyy年MM月dd日 (E)', 'ja').format(_selectedDate),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.arrow_drop_down, color: Colors.deepOrange),
+              ],
+            ),
+          ),
+        ),
+        
+        // 翌日ボタン
+        IconButton(
+          icon: const Icon(Icons.arrow_forward_ios),
+          onPressed: () {
+            setState(() {
+              _selectedDate = _selectedDate.add(const Duration(days: 1));
+              _hasCalculated = false;
+              _distribution.clear();
+              _actualKojiRate = null;
+            });
+            _loadDekojiProcesses();
+          },
+        ),
+      ],
+    ),
+  ),
+),
             
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             
             // 出麹予定表示セクション
-            const Text(
-              '本日の出麹予定',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.deepOrange,
+            Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '出麹予定',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
               ),
+              // 今日の日付に戻るボタン
+    if (_selectedDate != DateTime.now())
+      Container(
+        margin: const EdgeInsets.only(left: 8),
+        child: OutlinedButton.icon(
+          icon: const Icon(Icons.today, size: 16),
+          label: const Text('今日'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.deepOrange,
+            side: BorderSide(color: Colors.deepOrange),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
+          ),
+          onPressed: () {
+            setState(() {
+              _selectedDate = DateTime.now();
+              _hasCalculated = false;
+              _distribution.clear();
+              _actualKojiRate = null;
+            });
+            _loadDekojiProcesses();
+          },
+        ),
+      ),
+  ],
+),
             const Divider(color: Colors.deepOrange),
             
             if (_dekojiProcesses.isEmpty)
@@ -502,7 +580,6 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                           ),
                           child: Column(
                             children: [
-                              // ヘッダー行
                               // ヘッダー行
                               Container(
                                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -892,7 +969,6 @@ class _DekojiDistributionScreenState extends State<DekojiDistributionScreen> {
                         ),
                         
                         // 記録結果表示
-                       // 記録結果表示
                         if (_actualKojiRate != null) ...[
                           const SizedBox(height: 24),
                           
