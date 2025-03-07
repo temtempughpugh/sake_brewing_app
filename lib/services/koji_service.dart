@@ -114,10 +114,11 @@ class KojiService extends ChangeNotifier {
     
     try {
       // 1. 各ロットの枚数と列数を計算
-      for (var lot in lots) {
-        lot['sheets'] = (lot['weight'] / 10).ceil();
-        lot['columns'] = ((lot['weight'] / 10).ceil() / 5).ceil();
-      }
+      // 各ロットの枚数と列数を計算
+for (var lot in lots) {
+  lot['sheets'] = (lot['originalWeight'] / 10).ceil();
+  lot['columns'] = ((lot['originalWeight'] / 10).ceil() / 5).ceil();
+}
       
       // 2. 各ロットの行数を計算
       for (var lot in lots) {

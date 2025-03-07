@@ -1,9 +1,8 @@
-// lib/widgets/app_drawer.dart
+// lib/widgets/app_drawer.dart を修正
 import 'package:flutter/material.dart';
 import 'package:sake_brewing_app/screens/home_screen.dart';
 import 'package:sake_brewing_app/screens/jungo_list_screen.dart';
 import 'package:sake_brewing_app/screens/koji_screen.dart';
-// 新しい画面のインポート（後で実装）
 import 'package:sake_brewing_app/screens/rice_lot_screen.dart';
 import 'package:sake_brewing_app/screens/washing_record_screen.dart';
 import 'package:sake_brewing_app/screens/dekoji_distribution_screen.dart';
@@ -16,6 +15,7 @@ class AppDrawer extends StatelessWidget {
     return Drawer(
       child: Column(
         children: [
+          // ドロワーヘッダー
           DrawerHeader(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
@@ -42,6 +42,8 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
+          
+          // 基本機能
           _buildDrawerItem(
             context,
             title: 'ホーム画面',
@@ -64,9 +66,22 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
+          
+          // 麹管理セクション
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '麹管理',
+              style: TextStyle(
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
           _buildDrawerItem(
             context,
-            title: '麹管理',
+            title: '麹工程管理',
             icon: Icons.grain,
             onTap: () {
               Navigator.push(
@@ -75,7 +90,6 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
-          // 出麹配分メニューアイテム追加
           _buildDrawerItem(
             context,
             title: '出麹配分',
@@ -87,6 +101,8 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
+          
+          // 原料管理セクション
           const Divider(),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
