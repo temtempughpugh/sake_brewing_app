@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:sake_brewing_app/services/csv_service.dart';
+import 'package:sake_brewing_app/services/data_sync_service.dart';
 import 'package:sake_brewing_app/models/local_storage_service.dart';
 
 // 工程の種類
@@ -187,6 +188,33 @@ class BrewingDataProvider with ChangeNotifier {
   List<JungoData> get jungoList => _jungoList;
   DateTime get selectedDate => _selectedDate;
   bool get isLoading => _isLoading;
+
+ // ここから追加 ↓↓↓
+  // 同期サービス
+  final DataSyncService _syncService = DataSyncService();
+
+  // 同期状態プロパティ
+  bool get isSyncing => _syncService.isSyncing;
+  DateTime? get lastSyncTime => _syncService.lastSyncTime;
+
+  // 同期用のメソッドを追加
+  Future<bool> syncToFirestore() async {
+    final result = await _syncService.syncAllJungoData(_jungoList);
+    notifyListeners();
+    return result;
+  }
+
+  // Firestoreからデータを取得するメソッド
+  Future<void> fetchFromFirestore() async {
+    final jungoList = await _syncService.fetchJungoDataFromFirestore();
+    if (jungoList.isNotEmpty) {
+      _jungoList = jungoList;
+      notifyListeners();
+      
+      // ローカルストレージにも保存
+      await saveToLocalStorage();
+    }
+  }
   
 Future<void> loadFromLocalStorage() async {
   _isLoading = true;
@@ -335,6 +363,8 @@ Future<void> loadFromCsv(String csvData) async {
     if (index != -1) {
       _jungoList[index].records.add(record);
       notifyListeners();
+      // Firestoreに同期
+      _syncService.syncJungoDataToFirestore(_jungoList[index]);
     }
   }
 
@@ -348,6 +378,7 @@ Future<void> loadFromCsv(String csvData) async {
       if (processIndex != -1) {
         _jungoList[jungoIndex].processes[processIndex].status = status;
         notifyListeners();
+        _syncService.syncJungoDataToFirestore(_jungoList[jungoIndex]);
       }
     }
   }
@@ -383,6 +414,8 @@ Future<void> loadFromCsv(String csvData) async {
         }
         
         notifyListeners();
+        // Firestoreに同期
+        _syncService.syncJungoDataToFirestore(_jungoList[jungoIndex]);
       }
     }
   }
@@ -704,6 +737,8 @@ Future<void> loadFromCsv(String csvData) async {
         _jungoList[jungoIndex].processes[processIndex].status = ProcessStatus.completed;
         
         notifyListeners();
+        // Firestoreに同期
+        _syncService.syncJungoDataToFirestore(_jungoList[jungoIndex]);
       }
     }
   }

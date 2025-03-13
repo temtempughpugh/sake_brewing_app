@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "687454452213",
+    "firebase_url": "https://sakebrewingapp-default-rtdb.firebaseio.com",
     "project_id": "sakebrewingapp",
     "storage_bucket": "sakebrewingapp.firebasestorage.app"
   },

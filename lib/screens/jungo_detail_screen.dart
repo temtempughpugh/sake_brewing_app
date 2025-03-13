@@ -600,219 +600,226 @@ class _JungoDetailScreenState extends State<JungoDetailScreen> {
   }
   
   Widget _buildTimelineItem(BuildContext context, BrewingProcess process, bool isFirst) {
-    final today = DateTime.now();
-    final isToday = DateFormat('yyyy-MM-dd').format(today) == 
-                    DateFormat('yyyy-MM-dd').format(process.date);
-    
-    Color dotColor;
-    double dotSize = 16;
-    double lineWidth = 2;
-    
-    // 工程タイプに基づく色
-    switch (process.type) {
-      case ProcessType.koji:
-        dotColor = const Color(0xFFF1C40F); // 金色
-        break;
-      case ProcessType.moromi:
-        dotColor = Theme.of(context).colorScheme.primary; // メインカラー
-        break;
-      case ProcessType.washing:
-        dotColor = const Color(0xFF1ABC9C); // 水色
-        break;
-      case ProcessType.pressing:
-        dotColor = const Color(0xFF9B59B6); // 紫色
-        break;
-      case ProcessType.other:
-        dotColor = const Color(0xFF2ECC71); // 緑色
-        break;
-    }
-    
-    // 当日の工程は強調表示
-    if (isToday) {
-      dotSize = 24;
-      lineWidth = 3;
-      dotColor = const Color(0xFFE74C3C); // 赤色
-    }
-    
-    // 年を含む日付フォーマット
-    final fullDateFormat = DateFormat('yyyy年MM月dd日');
-    
-    // 工程タイプに応じた日付ラベル
-    String dateLabel;
-    if (process.type == ProcessType.koji) {
-      if (DateFormat('yyyy-MM-dd').format(process.getHikomiDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
-        dateLabel = '引込み日: ${fullDateFormat.format(process.date)}';
-      } else if (DateFormat('yyyy-MM-dd').format(process.getMoriDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
-        dateLabel = '盛り日: ${fullDateFormat.format(process.date)}';
-      } else if (DateFormat('yyyy-MM-dd').format(process.getDekojiDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
-        dateLabel = '出麹日: ${fullDateFormat.format(process.date)}';
-      } else {
-        dateLabel = '洗米日: ${fullDateFormat.format(process.washingDate)}';
-      }
-    } else if (process.type == ProcessType.washing) {
-      dateLabel = '洗米日: ${fullDateFormat.format(process.washingDate)}';
-    } else if (process.type == ProcessType.moromi) {
-      dateLabel = '仕込み日: ${fullDateFormat.format(process.getWorkDate())}';
-    } else if (process.type == ProcessType.pressing) {
-      dateLabel = '上槽日: ${fullDateFormat.format(process.date)}';
+  final today = DateTime.now();
+  final isToday = DateFormat('yyyy-MM-dd').format(today) == 
+                  DateFormat('yyyy-MM-dd').format(process.date);
+  
+  Color dotColor;
+  double dotSize = 16;
+  double lineWidth = 2;
+  
+  // 工程タイプに基づく色
+  switch (process.type) {
+    case ProcessType.koji:
+      dotColor = const Color(0xFFF1C40F); // 金色
+      break;
+    case ProcessType.moromi:
+      dotColor = Theme.of(context).colorScheme.primary; // メインカラー
+      break;
+    case ProcessType.washing:
+      dotColor = const Color(0xFF1ABC9C); // 水色
+      break;
+    case ProcessType.pressing:
+      dotColor = const Color(0xFF9B59B6); // 紫色
+      break;
+    case ProcessType.other:
+      dotColor = const Color(0xFF2ECC71); // 緑色
+      break;
+  }
+  
+  // 当日の工程は強調表示
+  if (isToday) {
+    dotSize = 24;
+    lineWidth = 3;
+    dotColor = const Color(0xFFE74C3C); // 赤色
+  }
+  
+  // 年を含む日付フォーマット
+  final fullDateFormat = DateFormat('yyyy年MM月dd日');
+  
+  // 工程タイプに応じた日付ラベル
+  String dateLabel;
+  if (process.type == ProcessType.koji) {
+    if (DateFormat('yyyy-MM-dd').format(process.getHikomiDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
+      dateLabel = '引込み日: ${fullDateFormat.format(process.date)}';
+    } else if (DateFormat('yyyy-MM-dd').format(process.getMoriDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
+      dateLabel = '盛り日: ${fullDateFormat.format(process.date)}';
+    } else if (DateFormat('yyyy-MM-dd').format(process.getDekojiDate()) == DateFormat('yyyy-MM-dd').format(process.date)) {
+      dateLabel = '出麹日: ${fullDateFormat.format(process.date)}';
     } else {
-      dateLabel = '作業日: ${fullDateFormat.format(process.date)}';
+      dateLabel = '洗米日: ${fullDateFormat.format(process.washingDate)}';
     }
-    
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // タイムラインの垂直線と丸印
-          SizedBox(
-            width: 50,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // 最初の要素以外に上線を表示
-                if (!isFirst)
-                  Positioned(
-                    top: 0,
-                    bottom: dotSize / 2,
-                    child: Container(
-                      width: lineWidth,
-                      color: Colors.grey.shade300,
-                    ),
-                  ),
-                
-                // 下線
+  } else if (process.type == ProcessType.washing) {
+    dateLabel = '洗米日: ${fullDateFormat.format(process.washingDate)}';
+  } else if (process.type == ProcessType.moromi) {
+    dateLabel = '仕込み日: ${fullDateFormat.format(process.getWorkDate())}';
+  } else if (process.type == ProcessType.pressing) {
+    dateLabel = '上槽日: ${fullDateFormat.format(process.date)}';
+  } else {
+    dateLabel = '作業日: ${fullDateFormat.format(process.date)}';
+  }
+  
+  return IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // タイムラインの垂直線と丸印
+        SizedBox(
+          width: 50,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // 最初の要素以外に上線を表示
+              if (!isFirst)
                 Positioned(
-                  top: dotSize / 2,
-                  bottom: 0,
+                  top: 0,
+                  bottom: dotSize / 2,
                   child: Container(
                     width: lineWidth,
                     color: Colors.grey.shade300,
                   ),
                 ),
-                
-                // 丸印
-                Container(
-                  width: dotSize,
-                  height: dotSize,
-                  decoration: BoxDecoration(
-                    color: dotColor,
-                    shape: BoxShape.circle,
-                    border: isToday 
-                        ? Border.all(color: Colors.white, width: 2)
-                        : null,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+              
+              // 下線
+              Positioned(
+                top: dotSize / 2,
+                bottom: 0,
+                child: Container(
+                  width: lineWidth,
+                  color: Colors.grey.shade300,
                 ),
-              ],
-            ),
+              ),
+              
+              // 丸印
+              Container(
+                width: dotSize,
+                height: dotSize,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                  border: isToday 
+                      ? Border.all(color: Colors.white, width: 2)
+                      : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          
-          // 工程の情報カード
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
-              child: Card(
-                margin: EdgeInsets.zero,
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: dotColor.withOpacity(0.5),
-                    width: 1,
-                  ),
+        ),
+        
+        // 工程の情報カード
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 20.0),
+            child: Card(
+              margin: EdgeInsets.zero,
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: dotColor.withOpacity(0.5),
+                  width: 1,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
                             process.name,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
                               color: isToday ? dotColor : Colors.black87,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          if (isToday && process.status != ProcessStatus.completed)
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.check, size: 16),
-                              label: const Text('完了'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2ECC71),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                        ),
+                        if (isToday && process.status != ProcessStatus.completed)
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.check, size: 16),
+                            label: const Text('完了'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2ECC71),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                              onPressed: () {
-                                _markProcessAsCompleted(process);
-                              },
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        dateLabel,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${process.riceType} (${process.ricePct}%) / ${process.amount}kg',
-                        style: const TextStyle(
-                          fontSize: 14,
-                        ),
-                      ),
-                      if (process.memo != null && process.memo!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
+                            onPressed: () {
+                              _markProcessAsCompleted(process);
+                            },
                           ),
-                          child: Text(
-                            'メモ: ${process.memo}',
-                            style: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              fontSize: 12,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      dateLabel,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${process.riceType} (${process.ricePct}%) / ${process.amount}kg',
+                      style: const TextStyle(
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (process.memo != null && process.memo!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.grey.shade300,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          'メモ: ${process.memo}',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
   
   Widget _buildTempBaumeChart(JungoData jungo) {
     // 日付フォーマッター

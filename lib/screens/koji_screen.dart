@@ -299,141 +299,133 @@ class _KojiScreenState extends State<KojiScreen> {
   }
   
   Widget _buildKojiProcessItem(BrewingProcess process, Color color) {
-    final provider = Provider.of<BrewingDataProvider>(context, listen: false);
-    final jungo = provider.getJungoById(process.jungoId);
-    
-    if (jungo == null) {
-      return const SizedBox.shrink();
-    }
-    
-    // 完了状態の判定
-    final bool isCompleted = process.status == ProcessStatus.completed;
-    
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8.0),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Colors.grey.shade300,
-              width: 1,
-            ),
+  final provider = Provider.of<BrewingDataProvider>(context, listen: false);
+  final jungo = provider.getJungoById(process.jungoId);
+  
+  if (jungo == null) {
+    return const SizedBox.shrink();
+  }
+  
+  // 完了状態の判定
+  final bool isCompleted = process.status == ProcessStatus.completed;
+  
+  return InkWell(
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+        ),
+      );
+    },
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8.0),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade300,
+            width: 1,
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              // 左側の情報
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            // 左側の情報
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
                           '順号${process.jungoId}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
                           jungo.name,
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade700,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
                           '${process.riceType} (${process.ricePct}%)',
                           style: TextStyle(
                             color: Colors.grey.shade800,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 16),
-                        Text(
-                          '${process.amount}kg',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (process.memo != null && process.memo!.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      ),
+                      const SizedBox(width: 16),
                       Text(
-                        'メモ: ${process.memo}',
+                        '${process.amount}kg',
                         style: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.bold,
+                          color: color,
                         ),
                       ),
                     ],
-                  ],
-                ),
-              ),
-              
-              // 完了/未完了トグルスイッチ
-              Column(
-                children: [
-                  Text(
-                    isCompleted ? '完了' : '未完了',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isCompleted ? Colors.green : Colors.grey,
+                  ),
+                  if (process.memo != null && process.memo!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'メモ: ${process.memo}',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Switch(
-                    value: isCompleted,
-                    onChanged: (value) {
-                      final newStatus = value ? ProcessStatus.completed : ProcessStatus.pending;
-                      provider.updateProcessStatus(process.jungoId, process.name, newStatus);
-                    },
-                    activeColor: Colors.green,
-                    activeTrackColor: Colors.green.withOpacity(0.3),
-                  ),
+                  ],
                 ],
               ),
-              
-              // 詳細アイコン
-              IconButton(
-                icon: const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
-                    ),
-                  );
-                },
+            ),
+            
+            // 削除: 完了/未完了トグルスイッチを削除
+            
+            // 詳細アイコン
+            IconButton(
+              icon: const Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
               ),
-            ],
-          ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
   
   // 日付選択ダイアログを表示
   Future<void> _selectDate(BuildContext context) async {

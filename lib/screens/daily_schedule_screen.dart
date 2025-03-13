@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sake_brewing_app/models/brewing_data.dart';
 import 'package:sake_brewing_app/models/brewing_schedule.dart'; // 拡張メソッドのインポートを追加
 import 'package:sake_brewing_app/screens/process_detail_screen.dart';
+import 'package:sake_brewing_app/screens/jungo_detail_screen.dart';
 
 class DailyScheduleScreen extends StatefulWidget {
   const DailyScheduleScreen({super.key});
@@ -245,88 +246,143 @@ class _DailyScheduleScreenState extends State<DailyScheduleScreen> {
   }
   
   Widget _buildProcessItem(BrewingProcess process, Color color) {
-    final provider = Provider.of<BrewingDataProvider>(context, listen: false);
-    final jungo = provider.getJungoById(process.jungoId);
-    
-    if (jungo == null) {
-      return const SizedBox.shrink();
-    }
-    
-    // 年を含む完全な日付形式で表示
-    final dateFormat = DateFormat('yyyy年MM月dd日', 'ja');
-    String dateStr = dateFormat.format(process.date);
-    
-    // ロット番号生成
-    String lotNumber = 'Lot-${jungo.jungoId}-${process.name}-${DateFormat('yyyyMMdd').format(process.date)}';
-    
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16.0,
-        vertical: 8.0,
-      ),
-      title: Text(
-        '${process.name} (順号${process.jungoId})',
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 4),
-          Text('${jungo.name} / タンク: ${jungo.tankNo}'),
-          const SizedBox(height: 4),
-          Text('日付: $dateStr'),
-          const SizedBox(height: 4),
-          Text('${process.riceType} (${process.ricePct}%) / ${process.amount}kg'),
-          const SizedBox(height: 4),
-          Text('ロット番号: $lotNumber', 
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-            ),
-          ),
-          if (process.memo != null && process.memo!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
+  final provider = Provider.of<BrewingDataProvider>(context, listen: false);
+  final jungo = provider.getJungoById(process.jungoId);
+  
+  if (jungo == null) {
+    return const SizedBox.shrink();
+  }
+  
+  // ロット番号生成
+  String lotNumber = 'Lot-${jungo.jungoId}-${process.name}-${DateFormat('yyyyMMdd').format(process.date)}';
+  
+  return ListTile(
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: 16.0,
+      vertical: 8.0,
+    ),
+    title: Text(
+      '${process.name} (順号${process.jungoId})',
+      style: const TextStyle(fontWeight: FontWeight.bold),
+      overflow: TextOverflow.ellipsis, // Add overflow handling
+    ),
+    subtitle: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
               child: Text(
-                'メモ: ${process.memo}',
-                style: const TextStyle(
-                  fontStyle: FontStyle.italic,
+                '${jungo.name} / タンク: ${jungo.tankNo}',
+                overflow: TextOverflow.ellipsis, // Add overflow handling
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '日付: ${DateFormat('yyyy年MM月dd日').format(process.date)}',
+                overflow: TextOverflow.ellipsis, // Add overflow handling
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${process.riceType} (${process.ricePct}%) / ${process.amount}kg',
+                overflow: TextOverflow.ellipsis, // Add overflow handling
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'ロット番号: $lotNumber', 
+                style: TextStyle(
+                  color: Colors.grey.shade600,
                   fontSize: 12,
                 ),
+                overflow: TextOverflow.ellipsis, // Add overflow handling
               ),
             ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProcessDetailScreen(
-                jungoId: process.jungoId,
-                processName: process.name,
-                date: _selectedDate,
-              ),
-            ),
-          );
-        },
-        tooltip: '記録・メモ',
-      ),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProcessDetailScreen(
-              jungoId: process.jungoId,
-              processName: process.name,
-              date: _selectedDate,
+          ],
+        ),
+        if (process.memo != null && process.memo!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'メモ: ${process.memo}',
+                    style: const TextStyle(
+                      fontStyle: FontStyle.italic,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis, // Add overflow handling
+                    maxLines: 2, // Limit to 2 lines
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      },
-    );
-  }
+      ],
+    ),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min, // Important!
+      children: [
+        // 完了/未完了ボタン
+        IconButton(
+          icon: Icon(
+            process.status == ProcessStatus.completed 
+                ? Icons.check_circle 
+                : Icons.check_circle_outline,
+            color: process.status == ProcessStatus.completed 
+                ? Colors.green 
+                : Colors.grey,
+          ),
+          onPressed: () {
+            final newStatus = process.status == ProcessStatus.completed 
+                ? ProcessStatus.pending 
+                : ProcessStatus.completed;
+            provider.updateProcessStatus(process.jungoId, process.name, newStatus);
+          },
+          tooltip: process.status == ProcessStatus.completed ? '完了済み' : '完了にする',
+        ),
+        // 詳細ボタン
+        IconButton(
+          icon: const Icon(Icons.arrow_forward_ios, size: 16),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => JungoDetailScreen(jungoId: process.jungoId),
+        ),
+      );
+    },
+  );
+}
   
   // 日付選択ダイアログ
   Future<void> _selectDate(BuildContext context) async {

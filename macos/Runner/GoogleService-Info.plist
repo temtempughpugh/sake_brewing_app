@@ -26,5 +26,7 @@
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:687454452213:ios:7d5dfc0b4c0506612908bc</string>
+	<key>DATABASE_URL</key>
+	<string>https://sakebrewingapp-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>

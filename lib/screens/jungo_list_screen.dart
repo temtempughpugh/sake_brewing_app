@@ -498,21 +498,29 @@ final filteredList = jungoList.where((jungo) {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          '順号${jungo.jungoId}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          jungo.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Expanded(
+  flex: 1,
+  child: Text(
+    '順号${jungo.jungoId}',
+    style: const TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+    ),
+    overflow: TextOverflow.ellipsis,
+  ),
+),
+const SizedBox(width: 8),
+Expanded(
+  flex: 3,
+  child: Text(
+    jungo.name,
+    style: TextStyle(
+      fontSize: 14,
+      color: Colors.grey.shade700,
+    ),
+    overflow: TextOverflow.ellipsis,
+  ),
+),
                       ],
                     ),
                     const SizedBox(height: 6),

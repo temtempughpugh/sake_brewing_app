@@ -10,6 +10,7 @@ import 'package:sake_brewing_app/screens/koji_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'package:sake_brewing_app/widgets/app_drawer.dart'; // 追加
+import 'package:sake_brewing_app/widgets/sync_status_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('日本酒醸造管理'),
         actions: [
+          const SyncStatusWidget(),
           IconButton(
             icon: const Icon(Icons.file_upload),
             onPressed: _importCsvFile,

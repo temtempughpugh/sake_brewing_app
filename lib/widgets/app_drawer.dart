@@ -1,11 +1,14 @@
 // lib/widgets/app_drawer.dart を修正
 import 'package:flutter/material.dart';
+import 'package:sake_brewing_app/services/firebase_service.dart';
 import 'package:sake_brewing_app/screens/home_screen.dart';
+import 'package:sake_brewing_app/screens/auth_screen.dart';
 import 'package:sake_brewing_app/screens/jungo_list_screen.dart';
 import 'package:sake_brewing_app/screens/koji_screen.dart';
 import 'package:sake_brewing_app/screens/rice_lot_screen.dart';
 import 'package:sake_brewing_app/screens/washing_record_screen.dart';
 import 'package:sake_brewing_app/screens/dekoji_distribution_screen.dart';
+
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -136,6 +139,46 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
+
+          // ドロワー内の最後に以下を追加
+const Divider(),
+ListTile(
+  leading: Icon(
+    Icons.logout,
+    color: Theme.of(context).colorScheme.error,
+  ),
+  title: const Text('ログアウト'),
+  onTap: () async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ログアウト確認'),
+        content: const Text('本当にログアウトしますか？\nログアウトするとサーバーデータにアクセスできなくなります。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ログアウト'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true) {
+      await FirebaseService().signOut();
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()),
+          (route) => false,
+        );
+      }
+    }
+  },
+),
         ],
       ),
     );

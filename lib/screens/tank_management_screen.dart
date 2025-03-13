@@ -154,11 +154,14 @@ class _TankManagementScreenState extends State<TankManagementScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              '醪温度・ボーメ推移',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            const FittedBox( // Wrap in FittedBox to prevent overflow
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '醪温度・ボーメ推移',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -379,15 +382,15 @@ class _TankManagementScreenState extends State<TankManagementScreen> {
                   children: [
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('開始日'),
+                      child: Text('開始日', overflow: TextOverflow.ellipsis),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('現在日数'),
+                      child: Text('現在日数', overflow: TextOverflow.ellipsis),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('予定終了日'),
+                      child: Text('予定終了日', overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -395,15 +398,24 @@ class _TankManagementScreenState extends State<TankManagementScreen> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(DateFormat('MM月dd日').format(startDate)),
+                      child: Text(
+                        DateFormat('MM月dd日').format(startDate),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('$currentDayCount日目 / $totalDayCount日間'),
+                      child: Text(
+                        '$currentDayCount日目 / $totalDayCount日間',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(DateFormat('MM月dd日').format(endDate)),
+                      child: Text(
+                        DateFormat('MM月dd日').format(endDate),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -508,6 +520,7 @@ class _TankManagementScreenState extends State<TankManagementScreen> {
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
             Row(
@@ -527,7 +540,11 @@ class _TankManagementScreenState extends State<TankManagementScreen> {
             ),
             if (record.memo != null && record.memo!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(record.memo!),
+              Text(
+                record.memo!,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
             ],
           ],
         ),
