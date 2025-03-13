@@ -24,77 +24,87 @@ class DataSyncService {
   bool get isSyncing => _isSyncing;
   
   // 順号データをFirestoreに同期
-  Future<bool> syncJungoDataToFirestore(JungoData jungo) async {
-    if (_firebaseService.currentUser == null) {
-      debugPrint('ユーザーがログインしていません');
-      return false;
-    }
-    
-    _isSyncing = true;
-    
-    try {
-      final userDoc = _firestore.collection('users').doc(_firebaseService.currentUser!.uid);
-      final jungoDoc = userDoc.collection('jungo_data').doc(jungo.jungoId.toString());
-      
-      // JungoDataをMap形式に変換
-      final Map<String, dynamic> jungoMap = {
-        'jungoId': jungo.jungoId,
-        'name': jungo.name,
-        'category': jungo.category,
-        'type': jungo.type,
-        'tankNo': jungo.tankNo,
-        'startDate': Timestamp.fromDate(jungo.startDate),
-        'endDate': Timestamp.fromDate(jungo.endDate),
-        'size': jungo.size,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      };
-      
-      // プロセスデータも保存
-      final List<Map<String, dynamic>> processMaps = jungo.processes.map((process) {
-        return {
-          'jungoId': process.jungoId,
-          'name': process.name,
-          'type': process.type.index,
-          'washingDate': Timestamp.fromDate(process.washingDate),
-          'date': Timestamp.fromDate(process.date),
-          'riceType': process.riceType,
-          'ricePct': process.ricePct,
-          'amount': process.amount,
-          'status': process.status.index,
-          'memo': process.memo,
-          'temperature': process.temperature,
-          'waterAbsorption': process.waterAbsorption,
-          'actualKojiRate': process.actualKojiRate,
-          'finalKojiWeight': process.finalKojiWeight,
-        };
-      }).toList();
-      
-      jungoMap['processes'] = processMaps;
-      
-      // タンク記録データも保存
-      final List<Map<String, dynamic>> recordMaps = jungo.records.map((record) {
-        return {
-          'date': Timestamp.fromDate(record.date),
-          'temperature': record.temperature,
-          'baume': record.baume,
-          'memo': record.memo,
-        };
-      }).toList();
-      
-      jungoMap['records'] = recordMaps;
-      
-      // Firestoreに保存
-      await jungoDoc.set(jungoMap, SetOptions(merge: true));
-      
-      _lastSyncTime = DateTime.now();
-      _isSyncing = false;
-      return true;
-    } catch (e) {
-      debugPrint('Firestore同期エラー: $e');
-      _isSyncing = false;
-      return false;
-    }
+  // lib/services/data_sync_service.dart のsyncJungoDataToFirestore部分を修正
+
+Future<bool> syncJungoDataToFirestore(JungoData jungo) async {
+  if (_firebaseService.currentUser == null) {
+    debugPrint('ユーザーがログインしていません');
+    return false;
   }
+  
+  _isSyncing = true;
+  
+  try {
+    // Firestoreのリファレンスを取得する前にネットワーク接続を確認
+    final isConnected = await _firebaseService.isConnected();
+    if (!isConnected) {
+      debugPrint('ネットワーク接続がありません');
+      _isSyncing = false;
+      return false;
+    }
+    
+    final userDoc = _firestore.collection('users').doc(_firebaseService.currentUser!.uid);
+    final jungoDoc = userDoc.collection('jungo_data').doc(jungo.jungoId.toString());
+    
+    // JungoDataをMap形式に変換
+    final Map<String, dynamic> jungoMap = {
+      'jungoId': jungo.jungoId,
+      'name': jungo.name,
+      'category': jungo.category,
+      'type': jungo.type,
+      'tankNo': jungo.tankNo,
+      'startDate': Timestamp.fromDate(jungo.startDate),
+      'endDate': Timestamp.fromDate(jungo.endDate),
+      'size': jungo.size,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    };
+    
+    // プロセスデータも保存
+    final List<Map<String, dynamic>> processMaps = jungo.processes.map((process) {
+      return {
+        'jungoId': process.jungoId,
+        'name': process.name,
+        'type': process.type.index,
+        'washingDate': Timestamp.fromDate(process.washingDate),
+        'date': Timestamp.fromDate(process.date),
+        'riceType': process.riceType,
+        'ricePct': process.ricePct,
+        'amount': process.amount,
+        'status': process.status.index,
+        'memo': process.memo,
+        'temperature': process.temperature,
+        'waterAbsorption': process.waterAbsorption,
+        'actualKojiRate': process.actualKojiRate,
+        'finalKojiWeight': process.finalKojiWeight,
+      };
+    }).toList();
+    
+    jungoMap['processes'] = processMaps;
+    
+    // タンク記録データも保存
+    final List<Map<String, dynamic>> recordMaps = jungo.records.map((record) {
+      return {
+        'date': Timestamp.fromDate(record.date),
+        'temperature': record.temperature,
+        'baume': record.baume,
+        'memo': record.memo,
+      };
+    }).toList();
+    
+    jungoMap['records'] = recordMaps;
+    
+    // Firestoreに保存
+    await jungoDoc.set(jungoMap, SetOptions(merge: true));
+    
+    _lastSyncTime = DateTime.now();
+    _isSyncing = false;
+    return true;
+  } catch (e) {
+    debugPrint('Firestore同期エラー: $e');
+    _isSyncing = false;
+    return false;
+  }
+}
   
   // すべての順号データを同期
   Future<bool> syncAllJungoData(List<JungoData> jungoList) async {

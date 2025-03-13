@@ -6,7 +6,6 @@ class RiceData {
   final String lotId;       // 自動生成のロットID
   final String riceType;    // 品種
   final String origin;      // 産地
-  final int polishingRatio; // 精米歩合（%）
   final DateTime? arrivalDate; // 入荷日（任意）
   final String? polishingNo;   // 精米ナンバー（任意）
   final double moisture;    // 白米水分（%）
@@ -18,7 +17,6 @@ class RiceData {
     required this.lotId,
     required this.riceType,
     required this.origin,
-    required this.polishingRatio,
     this.arrivalDate,
     this.polishingNo,
     required this.moisture,
@@ -32,7 +30,6 @@ class RiceData {
       'lotId': lotId,
       'riceType': riceType,
       'origin': origin,
-      'polishingRatio': polishingRatio,
       'arrivalDate': arrivalDate?.millisecondsSinceEpoch,
       'polishingNo': polishingNo,
       'moisture': moisture,
@@ -47,7 +44,6 @@ class RiceData {
       lotId: json['lotId'],
       riceType: json['riceType'],
       origin: json['origin'],
-      polishingRatio: json['polishingRatio'],
       arrivalDate: json['arrivalDate'] != null ? 
         DateTime.fromMillisecondsSinceEpoch(json['arrivalDate']) : null,
       polishingNo: json['polishingNo'],

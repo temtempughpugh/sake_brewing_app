@@ -14,32 +14,51 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Firebaseサービスの初期化
-  final firebaseService = FirebaseService();
-  await firebaseService.initialize();
-
-  // 保存データの読み込みを試みる
-  final brewingProvider = BrewingDataProvider();
-  await brewingProvider.loadFromLocalStorage();
-  
-  // 白米データプロバイダーを初期化
-  final riceDataProvider = RiceDataProvider();
-  
-  // 麹サービスを初期化
-  final kojiService = KojiService(brewingProvider);
-  
-  await NotificationService().init();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => brewingProvider),
-        ChangeNotifierProvider(create: (_) => riceDataProvider),
-        ChangeNotifierProvider(create: (_) => kojiService),
-        Provider.value(value: firebaseService), // 追加
-      ],
-      child: const MyApp(),
-    ),
-  );
+  try {
+    // Firebaseサービスの初期化
+    final firebaseService = FirebaseService();
+    await firebaseService.initialize();
+    
+    // 保存データの読み込みを試みる
+    final brewingProvider = BrewingDataProvider();
+    await brewingProvider.loadFromLocalStorage();
+    
+    // 白米データプロバイダーを初期化
+    final riceDataProvider = RiceDataProvider();
+    
+    // 麹サービスを初期化
+    final kojiService = KojiService(brewingProvider);
+    
+    await NotificationService().init();
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => brewingProvider),
+          ChangeNotifierProvider(create: (_) => riceDataProvider),
+          ChangeNotifierProvider(create: (_) => kojiService),
+          Provider.value(value: firebaseService),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e) {
+    print('初期化エラー: $e');
+    // エラーが発生してもアプリを起動できるようにする
+    final brewingProvider = BrewingDataProvider();
+    final riceDataProvider = RiceDataProvider();
+    final kojiService = KojiService(brewingProvider);
+    
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => brewingProvider),
+          ChangeNotifierProvider(create: (_) => riceDataProvider),
+          ChangeNotifierProvider(create: (_) => kojiService),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
